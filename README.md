@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema de farmacia
 
-## Getting Started
+Punto de venta e inventario para una farmacia de mostrador: venta con lector de código de barras, ticket impreso, caja con corte, inventario por lote y caducidad, usuarios con permisos y reportes financieros.
 
-First, run the development server:
+Hecho con Next.js 16, React 19, Tailwind 4 y Supabase (base de datos PostgreSQL y autenticación).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Qué hace
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Vender:** escaneas el código de barras y el producto entra al carrito. Al cobrar se imprime el ticket.
+- **Lotes y caducidad:** cada pieza sale del lote que caduca antes (FEFO). No se vende de lotes caducados ni bloqueados.
+- **Caja:** apertura con fondo, cobro en efectivo, tarjeta o transferencia y corte por billetes y monedas. El efectivo esperado lo calcula la base.
+- **Recibir mercancía:** entradas del proveedor con lote, caducidad y costo, también con el lector.
+- **Inventario:** existencias, alertas de stock bajo y por caducar, y kardex (historial de movimientos) por producto.
+- **Catálogo:** alta y edición de productos (con el lector para el código de barras), categorías y proveedores.
+- **Usuarios y permisos:** administrador y empleado. Tú decides qué puede hacer el empleado.
+- **Reportes:** ventas, utilidad, márgenes, formas de pago, cajeros, categorías, productos y horas pico, por día, semana, mes, año o rango. Exportación a CSV.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Inicio rápido
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Instala dependencias:
 
-## Learn More
+   ```bash
+   pnpm install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. Copia `.env.example` como `.env` y pon las llaves de tu proyecto de Supabase.
+3. Carga la base en Supabase y crea el primer administrador: [docs/instalacion.md](docs/instalacion.md).
+4. Arranca el servidor de desarrollo:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   pnpm dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+5. Entra a http://localhost:3000 con tu correo de administrador.
 
-## Deploy on Vercel
+## Comandos
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Comando | Para qué |
+|---|---|
+| `pnpm dev` | Servidor de desarrollo |
+| `pnpm build` | Compilación de producción |
+| `pnpm start` | Servir la compilación de producción |
+| `pnpm lint` | Revisar el código |
+| `pnpm probar` | Pruebas de la lógica (validaciones, lector, FEFO, periodos, CSV) |
+| `pnpm probar:base` | Probar migraciones y reglas de seguridad en un PostgreSQL temporal |
+| `pnpm probar:todo` | Las dos anteriores |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [Presentación](docs/presentacion.md) | Presentación comercial: beneficios, cómo funciona y requisitos |
+| [Instalación](docs/instalacion.md) | Supabase, variables, primer administrador, Vercel, impresora y lector |
+| [Manual de uso](docs/manual-de-uso.md) | Cómo vender, cobrar, cerrar caja, recibir mercancía y leer reportes |
+| [Arquitectura](docs/arquitectura.md) | Estructura del código y cómo viajan los datos |
+| [Base de datos](docs/base-de-datos.md) | Tablas, funciones, vistas y migraciones |
+| [Seguridad](docs/seguridad.md) | Reglas, permisos, llaves y límites conocidos |
+| [Historial del proyecto](docs/historial.md) | Cómo se construyó, decisiones y lo que sigue |
+
+## Personalizar
+
+- **Nombre y logo:** [config/marca.ts](config/marca.ts) y `public/marca/`.
+- **Punto de venta (sonido, ticket, ancho de papel):** [config/punto-de-venta.ts](config/punto-de-venta.ts).
+- **Datos fiscales del ticket:** pantalla Configuración del sistema.
+- **Colores y tipografía:** tokens en [app/globals.css](app/globals.css); reglas de diseño en [design.md](design.md).
