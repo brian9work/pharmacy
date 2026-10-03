@@ -23,6 +23,7 @@ const producto: Producto = {
   laboratorio: "",
   categoria: "",
   clasificacion: "libre",
+  requiereReceta: false,
   precio: 3500,
   iva: 0,
   stockMinimo: 20,
@@ -90,9 +91,10 @@ describe("IVA y receta", () => {
     assert.deepEqual(desglosarIva(3500, 0), { base: 3500, impuesto: 0 });
   });
 
-  it("pide receta para antibióticos y controlados", () => {
-    assert.equal(requiereReceta({ clasificacion: "libre" }), false);
-    assert.equal(requiereReceta({ clasificacion: "antibiotico" }), true);
-    assert.equal(requiereReceta({ clasificacion: "controlado" }), true);
+  it("pide receta para antibióticos, controlados y productos con la casilla", () => {
+    assert.equal(requiereReceta({ clasificacion: "libre", requiereReceta: false }), false);
+    assert.equal(requiereReceta({ clasificacion: "libre", requiereReceta: true }), true);
+    assert.equal(requiereReceta({ clasificacion: "antibiotico", requiereReceta: false }), true);
+    assert.equal(requiereReceta({ clasificacion: "controlado", requiereReceta: false }), true);
   });
 });

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { textosAlerta, textosCaducidad, textosClasificacion, textosMovimiento } from "@/app/components/contenido";
+import { etiquetaReceta, textosAlerta, textosCaducidad, textosMovimiento } from "@/app/components/contenido";
 import { EncabezadoPagina, Seccion } from "@/app/components/encabezado-pagina";
 import { Estado } from "@/app/components/estado";
 import { botonPrincipal, botonSecundario, celda, celdaEncabezado, contenedorTabla, enlace, tabla, tarjeta } from "@/app/components/estilos";
@@ -30,7 +30,7 @@ export default async function DetalleProducto({ params, searchParams }: PageProp
   const verCostos = costo !== undefined;
 
   const { producto, lotes, existencia, alertas } = fila;
-  const clasificacion = textosClasificacion[producto.clasificacion];
+  const clasificacion = etiquetaReceta(producto);
   // Margen sobre el precio sin IVA, igual que en Reportes.
   const { base } = desglosarIva(producto.precio, producto.iva);
   const margen = costo !== undefined && base > 0 ? Math.round(((base - costo) / base) * 100) : 0;

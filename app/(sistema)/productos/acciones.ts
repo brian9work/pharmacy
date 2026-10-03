@@ -17,7 +17,7 @@ export interface EstadoFormulario {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CAMPOS = [
   "codigoBarras", "nombre", "sustancia", "presentacion", "laboratorio", "categoria", "categoriaNueva",
-  "clasificacion", "precio", "costo", "iva", "stockMinimo", "ubicacion", "refrigerado", "activo",
+  "clasificacion", "requiereReceta", "precio", "costo", "iva", "stockMinimo", "ubicacion", "refrigerado", "activo",
 ];
 
 function camposDe(formulario: FormData): Record<string, string | undefined> {
@@ -61,6 +61,7 @@ export async function crearProducto(_: EstadoFormulario, formulario: FormData): 
       laboratorio: d.laboratorio,
       categoria_id: categoria.id,
       clasificacion: d.clasificacion,
+      requiere_receta: d.requiereReceta,
       precio: d.precio,
       costo: d.costo ?? 0,
       iva: d.iva,
@@ -102,6 +103,7 @@ export async function editarProducto(_: EstadoFormulario, formulario: FormData):
       laboratorio: d.laboratorio,
       categoria_id: categoria.id,
       clasificacion: d.clasificacion,
+      requiere_receta: d.requiereReceta,
       iva: d.iva,
       stock_minimo: d.stockMinimo,
       ubicacion: d.ubicacion,

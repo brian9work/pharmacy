@@ -29,6 +29,7 @@ import type {
   Ticket,
   TipoMovimiento,
   TipoMovimientoCaja,
+  TipoReceta,
   Turno,
   Usuario,
   VentaResumen,
@@ -40,7 +41,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PAGINA = 1000;
 
 const COLUMNAS_PRODUCTO =
-  "id, codigo_barras, nombre, sustancia, presentacion, laboratorio, clasificacion, precio, iva, stock_minimo, ubicacion, refrigerado, categorias(nombre)";
+  "id, codigo_barras, nombre, sustancia, presentacion, laboratorio, clasificacion, requiere_receta, precio, iva, stock_minimo, ubicacion, refrigerado, categorias(nombre)";
 const COLUMNAS_LOTE = "id, producto_id, numero, caducidad, cantidad, estado";
 const COLUMNAS_USUARIO = "id, nombre, correo, rol, activo, debe_cambiar_contrasena, ultimo_acceso";
 
@@ -52,6 +53,7 @@ interface FilaProducto {
   presentacion: string;
   laboratorio: string;
   clasificacion: Clasificacion;
+  requiere_receta: boolean;
   precio: number;
   iva: 0 | 16;
   stock_minimo: number;
@@ -89,6 +91,7 @@ function aProducto(f: FilaProducto): Producto {
     laboratorio: f.laboratorio,
     categoria: f.categorias?.nombre ?? "",
     clasificacion: f.clasificacion,
+    requiereReceta: f.requiere_receta,
     precio: f.precio,
     iva: f.iva,
     stockMinimo: f.stock_minimo,
@@ -352,14 +355,16 @@ export async function obtenerTicket(ventaId: string): Promise<Ticket | null> {
   } | null;
   if (!venta) return null;
 
-  const [partidas, pagos, negocio, cajero, turno, zona] = await Promise.all([
+  const [partidas, pagos, negocio, cajero, turno, receta, zona] = await Promise.all([
     supabase.from("venta_partidas").select("producto_id, cantidad, precio, importe").eq("venta_id", ventaId).order("id"),
     supabase.from("venta_pagos").select("metodo, monto, recibido").eq("venta_id", ventaId).order("id"),
     supabase.from("negocio").select("razon_social, rfc, direccion, telefono, pie_ticket").eq("id", 1).maybeSingle(),
     supabase.from("usuarios").select("nombre").eq("id", venta.usuario_id).maybeSingle(),
     supabase.from("turnos_caja").select("cajas(nombre)").eq("id", venta.turno_id).maybeSingle(),
+    supabase.from("recetas").select("tipo, medico, cedula, folio_receta, retenida").eq("venta_id", ventaId).maybeSingle(),
     obtenerZona(),
   ]);
+  const filaReceta = datos(receta) as { tipo: TipoReceta; medico: string; cedula: string; folio_receta: string; retenida: boolean } | null;
 
   const filas = datos(partidas) as { producto_id: string; cantidad: number; precio: number; importe: number }[];
   const ids = [...new Set(filas.map((f) => f.producto_id))];
@@ -409,6 +414,9 @@ export async function obtenerTicket(ventaId: string): Promise<Ticket | null> {
     pagos: listaPagos,
     cambio: efectivo?.recibido != null ? efectivo.recibido - efectivo.monto : null,
     cancelada: venta.estado === "cancelada",
+    receta: filaReceta
+      ? { tipo: filaReceta.tipo, medico: filaReceta.medico, cedula: filaReceta.cedula, folio: filaReceta.folio_receta, retenida: filaReceta.retenida }
+      : null,
   };
 }
 

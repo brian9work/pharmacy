@@ -40,6 +40,8 @@ export interface DatosProducto {
   /** Categoría existente, nueva por nombre, o ninguna. */
   categoria: { id: number } | { nueva: string } | null;
   clasificacion: Clasificacion;
+  /** Casilla "Requiere receta médica"; siempre true en antibióticos y controlados. */
+  requiereReceta: boolean;
   precio: number;
   /** null = no se capturó (no se cambia). */
   costo: number | null;
@@ -105,6 +107,7 @@ export function leerProducto(campos: Record<string, string | undefined>): Lectur
       laboratorio: texto("laboratorio"),
       categoria,
       clasificacion,
+      requiereReceta: campos.requiereReceta === "on" || clasificacion !== "libre",
       precio,
       costo,
       iva: iva === "16" ? 16 : 0,

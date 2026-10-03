@@ -1,7 +1,7 @@
 // Reglas de inventario. Funciones puras: sirven en servidor y navegador.
 
 import { diasEntre } from "@/lib/formato";
-import type { Lote, Producto } from "@/lib/tipos";
+import type { Lote, Producto, TipoReceta } from "@/lib/tipos";
 
 /** Un lote se marca "por caducar" a partir de estos días antes. */
 export const DIAS_AVISO_CADUCIDAD = 90;
@@ -72,8 +72,16 @@ export function alertasDe(producto: Producto, lotes: Lote[], hoy: string): Alert
   return alertas;
 }
 
-export function requiereReceta(producto: Pick<Producto, "clasificacion">): boolean {
-  return producto.clasificacion !== "libre";
+export function requiereReceta(producto: Pick<Producto, "clasificacion" | "requiereReceta">): boolean {
+  return producto.requiereReceta || producto.clasificacion !== "libre";
+}
+
+/** La receta que pide un carrito: la más estricta de sus productos, o null si ninguno la pide. */
+export function tipoReceta(productos: Pick<Producto, "clasificacion" | "requiereReceta">[]): TipoReceta | null {
+  if (productos.some((p) => p.clasificacion === "controlado")) return "controlado";
+  if (productos.some((p) => p.clasificacion === "antibiotico")) return "antibiotico";
+  if (productos.some((p) => p.requiereReceta)) return "simple";
+  return null;
 }
 
 /** Separa el IVA de un importe que ya lo incluye. */

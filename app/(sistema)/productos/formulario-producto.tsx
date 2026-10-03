@@ -46,6 +46,8 @@ export function FormularioProducto({ producto, costo, categorias, codigos, permi
   const [precio, setPrecio] = useState(producto ? pesos(producto.precio) : "");
   const [costoTexto, setCostoTexto] = useState(costo !== undefined ? pesos(costo) : "");
   const [iva, setIva] = useState<0 | 16>(producto?.iva ?? 0);
+  const [conReceta, setConReceta] = useState(producto ? producto.requiereReceta || producto.clasificacion !== "libre" : false);
+  const [clasificacion, setClasificacion] = useState<Clasificacion>(producto?.clasificacion ?? "libre");
 
   const { editar, precios } = permisos;
   const verCosto = nuevo || costo !== undefined || precios;
@@ -181,33 +183,64 @@ export function FormularioProducto({ producto, costo, categorias, codigos, permi
       </Grupo>
 
       <Grupo id="grupo-venta" titulo={textos.secciones.venta}>
-        <fieldset className="sm:col-span-2">
-          <legend className={etiquetaCampo}>{t.clasificacion}</legend>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {CLASIFICACIONES.map((c) => (
-              <label
-                key={c}
-                className={`flex gap-3 rounded-2xl border border-hairline bg-background p-4 transition-colors has-checked:border-accent has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${
-                  editar ? "cursor-pointer" : "opacity-60"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="clasificacion"
-                  value={c}
-                  defaultChecked={(producto?.clasificacion ?? "libre") === c}
-                  disabled={!editar}
-                  className="mt-1 accent-accent"
-                />
-                <span>
-                  <span className="block text-[15px] font-medium">{t.clasificaciones[c].nombre}</span>
-                  <span className="block text-[13px] text-muted">{t.clasificaciones[c].descripcion}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {!editar && <input type="hidden" name="clasificacion" value={producto?.clasificacion ?? "libre"} />}
-        </fieldset>
+        <div className="sm:col-span-2">
+          <label
+            className={`flex gap-3 rounded-2xl border border-hairline bg-background p-4 transition-colors has-checked:border-accent has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${
+              editar ? "cursor-pointer" : "opacity-60"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={conReceta}
+              onChange={(e) => {
+                setConReceta(e.target.checked);
+                if (!e.target.checked) setClasificacion("libre");
+              }}
+              disabled={!editar}
+              aria-describedby="receta-ayuda"
+              className="mt-1 size-4 shrink-0 accent-accent"
+            />
+            <span>
+              <span className="block text-[15px] font-medium">{t.receta}</span>
+              <span id="receta-ayuda" className="block text-[13px] text-muted">
+                {t.recetaAyuda}
+              </span>
+            </span>
+          </label>
+          {/* Una casilla o radio deshabilitados no se envían: los valores viajan aquí. */}
+          <input type="hidden" name="requiereReceta" value={conReceta ? "on" : "off"} />
+          <input type="hidden" name="clasificacion" value={conReceta ? clasificacion : "libre"} />
+        </div>
+
+        {conReceta && (
+          <fieldset className="sm:col-span-2">
+            <legend className={etiquetaCampo}>{t.tipoReceta}</legend>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {CLASIFICACIONES.map((c) => (
+                <label
+                  key={c}
+                  className={`flex gap-3 rounded-2xl border border-hairline bg-background p-4 transition-colors has-checked:border-accent has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent ${
+                    editar ? "cursor-pointer" : "opacity-60"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="tipoReceta"
+                    value={c}
+                    checked={clasificacion === c}
+                    onChange={() => setClasificacion(c)}
+                    disabled={!editar}
+                    className="mt-1 accent-accent"
+                  />
+                  <span>
+                    <span className="block text-[15px] font-medium">{t.clasificaciones[c].nombre}</span>
+                    <span className="block text-[13px] text-muted">{t.clasificaciones[c].descripcion}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         <div>
           <label htmlFor="precio" className={etiquetaCampo}>

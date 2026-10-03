@@ -102,6 +102,31 @@ export function Ticket({ ticket }: { ticket: DatosTicket }) {
         </div>
       </dl>
 
+      {ticket.receta && (
+        <dl className="ticket-filas">
+          <div>
+            <dt>{t.receta.medico}</dt>
+            <dd>{ticket.receta.medico}</dd>
+          </div>
+          <div>
+            <dt>{t.receta.cedula}</dt>
+            <dd>{ticket.receta.cedula}</dd>
+          </div>
+          {ticket.receta.folio && (
+            <div>
+              <dt>{t.receta.folio}</dt>
+              <dd>{ticket.receta.folio}</dd>
+            </div>
+          )}
+          {ticket.receta.retenida && (
+            <div>
+              <dt>{t.receta.estado}</dt>
+              <dd>{t.receta.retenida}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
       {(negocio.pie || puntoDeVenta.leyendaNoFiscal) && (
         <footer className="ticket-centro">
           {negocio.pie && <p>{negocio.pie}</p>}

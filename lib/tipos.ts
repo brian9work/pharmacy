@@ -8,8 +8,11 @@ import type { Rol } from "@/config/permisos";
 
 export type { Rol };
 
-/** libre: venta sin receta · antibiotico: receta obligatoria · controlado: receta retenida. */
+/** libre: sin clasificación especial · antibiotico: receta registrada · controlado: receta retenida. */
 export type Clasificacion = "libre" | "antibiotico" | "controlado";
+
+/** La receta que pide una venta: la más estricta de sus productos. */
+export type TipoReceta = "simple" | "antibiotico" | "controlado";
 
 export interface Producto {
   id: string;
@@ -20,6 +23,8 @@ export interface Producto {
   laboratorio: string;
   categoria: string;
   clasificacion: Clasificacion;
+  /** Casilla "Requiere receta médica". Siempre true en antibióticos y controlados. */
+  requiereReceta: boolean;
   /** Precio de venta con IVA incluido, en centavos. */
   precio: number;
   /** Porcentaje de IVA: medicamentos 0, el resto 16. */
@@ -125,6 +130,7 @@ export interface Ticket {
   pagos: { metodo: MetodoPago; monto: number; recibido: number | null }[];
   cambio: number | null;
   cancelada: boolean;
+  receta: { tipo: TipoReceta; medico: string; cedula: string; folio: string; retenida: boolean } | null;
 }
 
 /** Totales de un periodo. Dinero en centavos. */

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Form from "next/form";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { textosAlerta, textosClasificacion } from "@/app/components/contenido";
+import { etiquetaReceta, textosAlerta } from "@/app/components/contenido";
 import { EncabezadoPagina } from "@/app/components/encabezado-pagina";
 import { Estado } from "@/app/components/estado";
 import {
@@ -140,7 +140,7 @@ export default async function Inventario({ searchParams }: PageProps<"/inventari
             </thead>
             <tbody className="divide-y divide-hairline">
               {visibles.map((f) => {
-                const clasificacion = textosClasificacion[f.producto.clasificacion];
+                const clasificacion = etiquetaReceta(f.producto);
                 return (
                   <tr key={f.producto.id} className="transition-colors hover:bg-foreground/[0.03]">
                     <td className={celda}>

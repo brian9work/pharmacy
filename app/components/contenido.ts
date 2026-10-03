@@ -30,11 +30,13 @@ export const textosCaducidad: Record<EstadoCaducidad, { texto: string; tono: Ton
   vigente: { texto: "Vigente", tono: "exito" },
 };
 
-export const textosClasificacion: Record<Clasificacion, { texto: string; tono: Tono } | null> = {
-  libre: null,
-  antibiotico: { texto: "Antibiótico · receta", tono: "acento" },
-  controlado: { texto: "Controlado · receta retenida", tono: "acento" },
-};
+/** Etiqueta de receta de un producto, o null si se vende libre. */
+export function etiquetaReceta(producto: { clasificacion: Clasificacion; requiereReceta: boolean }): { texto: string; tono: Tono } | null {
+  if (producto.clasificacion === "controlado") return { texto: "Controlado · receta retenida", tono: "acento" };
+  if (producto.clasificacion === "antibiotico") return { texto: "Antibiótico · receta", tono: "acento" };
+  if (producto.requiereReceta) return { texto: "Requiere receta", tono: "acento" };
+  return null;
+}
 
 export const textosMetodo: Record<MetodoPago, string> = {
   efectivo: "Efectivo",
@@ -70,4 +72,11 @@ export const textosTicket = {
   piezasEtiqueta: "Piezas",
   imprimir: "Imprimir",
   volver: "Volver",
+  receta: {
+    medico: "Médico",
+    cedula: "Cédula",
+    folio: "Folio receta",
+    estado: "Receta",
+    retenida: "Retenida",
+  },
 };

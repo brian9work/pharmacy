@@ -38,6 +38,7 @@ describe("leerProducto", () => {
       laboratorio: "",
       categoria: null,
       clasificacion: "libre",
+      requiereReceta: false,
       precio: 3550,
       costo: null,
       iva: 0,
@@ -108,6 +109,20 @@ describe("leerProducto", () => {
 
   it("rechaza textos de más de 120 caracteres", () => {
     assert.deepEqual(leerProducto({ ...minimo, presentacion: "x".repeat(121) }), { ok: false, error: MENSAJES_PRODUCTO.largo });
+  });
+
+  it("lee la casilla de receta; antibióticos y controlados siempre la llevan", () => {
+    const conCasilla = leerProducto({ ...minimo, requiereReceta: "on" });
+    assert.ok(conCasilla.ok);
+    assert.equal(conCasilla.datos.requiereReceta, true);
+
+    const antibiotico = leerProducto({ ...minimo, clasificacion: "antibiotico", requiereReceta: "off" });
+    assert.ok(antibiotico.ok);
+    assert.equal(antibiotico.datos.requiereReceta, true);
+
+    const sinCasilla = leerProducto({ ...minimo, requiereReceta: "off" });
+    assert.ok(sinCasilla.ok);
+    assert.equal(sinCasilla.datos.requiereReceta, false);
   });
 
   it("lee refrigerado y el estado de la edición", () => {

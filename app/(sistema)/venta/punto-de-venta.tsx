@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useId, useMemo, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { textosClasificacion, textosMetodo } from "@/app/components/contenido";
+import { etiquetaReceta, textosMetodo } from "@/app/components/contenido";
 import { Estado } from "@/app/components/estado";
 import {
   botonIcono,
@@ -18,7 +18,8 @@ import { sonar, useLectorCodigos } from "@/app/components/lector-codigos";
 import { EstiloImpresionTicket, Ticket } from "@/app/components/ticket";
 import { puntoDeVenta } from "@/config/punto-de-venta";
 import { dinero, fechaCorta } from "@/lib/formato";
-import { asignarFEFO, desglosarIva, estadoCaducidad, requiereReceta, sumarPiezas } from "@/lib/inventario";
+import { asignarFEFO, desglosarIva, estadoCaducidad, requiereReceta, sumarPiezas, tipoReceta } from "@/lib/inventario";
+import { validarReceta, type CamposReceta } from "@/lib/validacion-receta";
 import type { Lote, MetodoPago, Producto, Ticket as DatosTicket } from "@/lib/tipos";
 import { cobrarVenta } from "./acciones";
 import { venta } from "./contenido";
@@ -42,6 +43,8 @@ interface VentaConfirmada {
 
 const METODOS: MetodoPago[] = ["efectivo", "tarjeta", "transferencia"];
 const MAX_RESULTADOS = 8;
+const claseEtiquetaReceta = "mb-1 block text-[13px] font-medium";
+const claseCampoReceta = `${campo} h-10 text-[15px]`;
 
 function normalizar(texto: string) {
   return texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
@@ -64,6 +67,9 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
   const [aviso, setAviso] = useState("");
   const [cobrando, iniciarCobro] = useTransition();
   const [confirmada, setConfirmada] = useState<VentaConfirmada | null>(null);
+  const idReceta = useId();
+  const recetaNueva = (): CamposReceta => ({ medico: "", cedula: "", fecha: hoy, folio: "", retenida: false });
+  const [receta, setReceta] = useState<CamposReceta>(recetaNueva);
 
   const porId = useMemo(() => new Map(catalogo.map((a) => [a.producto.id, a])), [catalogo]);
   const porCodigo = useMemo(
@@ -105,10 +111,19 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
   const iva = total - subtotal;
   const conReceta = lineas.filter((l) => requiereReceta(l.producto));
 
+  // Si algún producto pide receta, no se cobra sin capturarla. La base también lo exige.
+  const tipo = tipoReceta(lineas.map((l) => l.producto));
+  const lecturaReceta = tipo ? validarReceta(receta, tipo, hoy) : null;
+  const recetaLista = lecturaReceta === null || lecturaReceta.ok;
+
   // Efectivo vacío cuenta como pago exacto, para no frenar la fila.
   const recibidoCentavos = recibido.trim() === "" ? total : aCentavos(recibido);
   const cambio = metodo === "efectivo" && recibidoCentavos !== null ? recibidoCentavos - total : null;
-  const puedeCobrar = !cobrando && lineas.length > 0 && (metodo !== "efectivo" || (cambio !== null && cambio >= 0));
+  const puedeCobrar = !cobrando && lineas.length > 0 && recetaLista && (metodo !== "efectivo" || (cambio !== null && cambio >= 0));
+
+  function cambiarReceta(campo: "medico" | "cedula" | "fecha" | "folio", valor: string) {
+    setReceta((r) => ({ ...r, [campo]: valor }));
+  }
 
   function fijarCantidad(productoId: string, cantidad: number): boolean {
     const articulo = porId.get(productoId)!;
@@ -160,12 +175,19 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
   }, [confirmada]);
 
   function cobrar() {
+    if (lecturaReceta && !lecturaReceta.ok && lineas.length > 0 && !cobrando) {
+      setAviso(lecturaReceta.error);
+      sonar("error");
+      document.getElementById(`${idReceta}-medico`)?.focus();
+      return;
+    }
     if (!puedeCobrar) return;
     // La base vuelve a calcular precios, lotes y totales: lo de aquí es solo la vista previa.
     const cobro = {
       partidas: partidas.map((p) => ({ productoId: p.productoId, cantidad: p.cantidad })),
       metodo,
       recibido: metodo === "efectivo" && recibido.trim() !== "" ? aCentavos(recibido) : null,
+      receta: lecturaReceta?.ok ? lecturaReceta.receta : null,
     };
     iniciarCobro(async () => {
       const resultado = await cobrarVenta(cobro);
@@ -175,6 +197,7 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
       }
       setConfirmada(resultado.datos);
       setPartidas([]);
+      setReceta(recetaNueva());
       setRecibido("");
       setMetodo("efectivo");
       setAviso("");
@@ -277,7 +300,7 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
             <ul id={idLista} role="listbox" aria-label={venta.buscar.resultados(resultados.length)} className="space-y-2">
               {resultados.map((a, i) => {
                 const existencia = sumarPiezas(a.vendibles);
-                const clasificacion = textosClasificacion[a.producto.clasificacion];
+                const clasificacion = etiquetaReceta(a.producto);
                 const elegido = i === seleccion;
                 return (
                   <li
@@ -443,21 +466,88 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
               </ul>
             )}
 
-            {conReceta.length > 0 && (
-              <div className="mt-4 rounded-2xl bg-accent/10 px-4 py-3">
-                <p className="flex items-center gap-2 text-[15px] font-medium text-accent">
+            {tipo && (
+              <fieldset className="mt-4 min-w-0 rounded-2xl bg-accent/10 p-4">
+                <legend className="sr-only">{venta.receta.titulo}</legend>
+                <p className="flex items-center gap-2 text-[15px] font-medium text-accent" aria-hidden="true">
                   <Icono nombre="aviso" className="size-4 shrink-0" />
                   {venta.receta.titulo}
                 </p>
+                <p className="mt-1 text-[13px] leading-5">{venta.receta.descripcion}</p>
                 <ul className="mt-1 space-y-0.5 text-[13px] leading-5">
                   {conReceta.map((l) => (
                     <li key={l.productoId}>
-                      <span className="font-medium">{l.producto.nombre}.</span>{" "}
-                      {l.producto.clasificacion === "controlado" ? venta.receta.controlado : venta.receta.antibiotico}
+                      <span className="font-medium">{l.producto.nombre}</span> · {etiquetaReceta(l.producto)?.texto}
                     </li>
                   ))}
                 </ul>
-              </div>
+                <div className="mt-3 grid gap-3 min-[400px]:grid-cols-2">
+                  <div className="min-w-0 min-[400px]:col-span-2">
+                    <label htmlFor={`${idReceta}-medico`} className={claseEtiquetaReceta}>
+                      {venta.receta.medico}
+                    </label>
+                    <input
+                      id={`${idReceta}-medico`}
+                      value={receta.medico}
+                      onChange={(e) => cambiarReceta("medico", e.target.value)}
+                      autoComplete="off"
+                      maxLength={120}
+                      className={claseCampoReceta}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label htmlFor={`${idReceta}-cedula`} className={claseEtiquetaReceta}>
+                      {venta.receta.cedula}
+                    </label>
+                    <input
+                      id={`${idReceta}-cedula`}
+                      value={receta.cedula}
+                      onChange={(e) => cambiarReceta("cedula", e.target.value)}
+                      autoComplete="off"
+                      spellCheck={false}
+                      maxLength={25}
+                      className={`${claseCampoReceta} font-mono uppercase`}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label htmlFor={`${idReceta}-fecha`} className={claseEtiquetaReceta}>
+                      {venta.receta.fecha}
+                    </label>
+                    <input
+                      id={`${idReceta}-fecha`}
+                      type="date"
+                      max={hoy}
+                      value={receta.fecha}
+                      onChange={(e) => cambiarReceta("fecha", e.target.value)}
+                      className={claseCampoReceta}
+                    />
+                  </div>
+                  <div className="min-w-0 min-[400px]:col-span-2">
+                    <label htmlFor={`${idReceta}-folio`} className={claseEtiquetaReceta}>
+                      {venta.receta.folio}
+                    </label>
+                    <input
+                      id={`${idReceta}-folio`}
+                      value={receta.folio}
+                      onChange={(e) => cambiarReceta("folio", e.target.value)}
+                      autoComplete="off"
+                      maxLength={40}
+                      className={claseCampoReceta}
+                    />
+                  </div>
+                  {tipo === "controlado" && (
+                    <label className="flex cursor-pointer items-start gap-2 text-[13px] font-medium leading-5 min-[400px]:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={receta.retenida}
+                        onChange={(e) => setReceta((r) => ({ ...r, retenida: e.target.checked }))}
+                        className="mt-0.5 size-4 shrink-0 accent-accent"
+                      />
+                      {venta.receta.retenida}
+                    </label>
+                  )}
+                </div>
+              </fieldset>
             )}
 
             <dl className="mt-6 space-y-2 border-t border-hairline pt-4 text-[15px]">
@@ -533,10 +623,13 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
               </div>
             )}
 
-            {aviso && (
+            {aviso ? (
               <p className="mt-6 rounded-2xl bg-warning/10 px-4 py-3 text-[15px] text-warning" aria-hidden="true">
                 {aviso}
               </p>
+            ) : (
+              lecturaReceta &&
+              !lecturaReceta.ok && <p className="mt-6 text-[13px] leading-5 text-warning">{lecturaReceta.error}</p>
             )}
 
             <button type="button" onClick={cobrar} disabled={!puedeCobrar} className={`${botonPrincipal} mt-6 w-full`}>

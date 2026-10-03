@@ -27,9 +27,13 @@ export const venta = {
     vaciar: "Vaciar",
   },
   receta: {
-    titulo: "Pide la receta antes de cobrar",
-    antibiotico: "Antibiótico: revisa la receta médica.",
-    controlado: "Controlado: retén la receta.",
+    titulo: "Receta obligatoria",
+    descripcion: "No se puede cobrar sin capturar la receta de:",
+    medico: "Médico que receta",
+    cedula: "Cédula profesional",
+    fecha: "Fecha de la receta",
+    folio: "Folio de la receta (opcional)",
+    retenida: "Retuve la receta original (obligatorio en controlados)",
   },
   totales: {
     subtotal: "Subtotal",
