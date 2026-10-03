@@ -1,0 +1,72 @@
+export const venta = {
+  titulo: "Vender",
+  buscar: {
+    etiqueta: "Buscar producto",
+    placeholder: "Escanea o escribe nombre, sustancia o código",
+    pista: "Escanea el código de barras o escribe al menos 2 letras del nombre.",
+    sinResultados: (q: string) => `No hay productos que coincidan con «${q}».`,
+    resultados: (n: number) => (n === 1 ? "1 producto" : `${n} productos`),
+    existencia: (n: number) => (n === 0 ? "Sin existencia" : `${n} en existencia`),
+  },
+  atajos: [
+    { tecla: "F2", accion: "Buscar" },
+    { tecla: "↑ ↓", accion: "Elegir" },
+    { tecla: "Enter", accion: "Agregar" },
+    { tecla: "F9", accion: "Cobrar" },
+  ],
+  carrito: {
+    titulo: "Venta actual",
+    vacio: "Agrega productos para empezar la venta.",
+    lote: (numero: string, caducidad: string) => `Lote ${numero} · caduca ${caducidad}`,
+    lotes: (detalle: string) => `Lotes ${detalle}`,
+    menos: (nombre: string) => `Quitar una pieza de ${nombre}`,
+    mas: (nombre: string) => `Agregar una pieza de ${nombre}`,
+    quitar: (nombre: string) => `Quitar ${nombre} de la venta`,
+    cantidad: (nombre: string) => `Cantidad de ${nombre}`,
+    porCaducar: "Por caducar",
+    vaciar: "Vaciar",
+  },
+  receta: {
+    titulo: "Pide la receta antes de cobrar",
+    antibiotico: "Antibiótico: revisa la receta médica.",
+    controlado: "Controlado: retén la receta.",
+  },
+  totales: {
+    subtotal: "Subtotal",
+    iva: "IVA",
+    total: "Total",
+  },
+  pago: {
+    titulo: "Forma de pago",
+    recibido: "Efectivo recibido",
+    exacto: "Exacto",
+    cambio: "Cambio",
+    faltan: "Faltan",
+  },
+  cobrar: (total: string) => `Cobrar ${total}`,
+  cobrando: "Cobrando…",
+  barraMovil: {
+    piezas: (n: number) => (n === 1 ? "1 pieza" : `${n} piezas`),
+    ir: "Ver venta",
+  },
+  avisos: {
+    codigoDesconocido: (codigo: string) => `El código ${codigo} no está en el catálogo o el producto está inactivo.`,
+    sinPiezas: (nombre: string, hay: number) =>
+      hay === 0 ? `${nombre} no tiene existencia para vender.` : `Solo hay ${hay} ${hay === 1 ? "pieza" : "piezas"} de ${nombre}.`,
+  },
+  confirmacion: {
+    titulo: "Venta registrada",
+    folio: "Folio",
+    total: "Total",
+    cambio: "Cambio",
+    nueva: "Nueva venta",
+    imprimir: "Imprimir ticket",
+    siguiente: "Escanea el siguiente producto para empezar otra venta.",
+    sinTicket: "La venta quedó registrada, pero no se pudo preparar el ticket. Reimprímelo desde el panel.",
+  },
+  sinCaja: {
+    titulo: "Abre tu caja para vender",
+    texto: "Cada venta queda ligada a tu caja y a tu turno.",
+    accion: "Abrir caja",
+  },
+};

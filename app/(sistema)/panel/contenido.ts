@@ -1,0 +1,48 @@
+export const panel = {
+  saludo: (nombre: string) => `Hola, ${nombre}`,
+  descripcion: "Lo que necesitas saber para empezar el turno.",
+  nuevaVenta: "Nueva venta",
+  indicadores: {
+    ventasTodas: "Ventas de hoy",
+    ventasPropias: "Tus ventas de hoy",
+    tickets: (n: number) => (n === 1 ? "1 ticket" : `${n} tickets`),
+    porCaducar: "Lotes por caducar",
+    porCaducarNota: "En los próximos 90 días",
+    stockBajo: "Productos por surtir",
+    stockBajoNota: "Bajo el mínimo o agotados",
+  },
+  caja: {
+    abierta: (nombre: string, hora: string) => `${nombre} abierta desde las ${hora}`,
+    esperado: "Efectivo esperado",
+    esperadoOculto: "se muestra al cerrar la caja",
+    ir: "Ir a caja",
+    cerrada: "No tienes una caja abierta.",
+    abrir: "Abrir caja",
+  },
+  porCaducar: {
+    titulo: "Por caducar",
+    verTodo: "Ver en inventario",
+    vacio: "Ningún lote caduca en los próximos 90 días.",
+    detalle: (numero: string, caducidad: string, piezas: number) =>
+      `Lote ${numero} · ${caducidad} · ${piezas} ${piezas === 1 ? "pieza" : "piezas"}`,
+    dias: (d: number) => (d < 0 ? `Caducó hace ${-d} ${-d === 1 ? "día" : "días"}` : d === 0 ? "Caduca hoy" : `${d} ${d === 1 ? "día" : "días"}`),
+  },
+  stockBajo: {
+    titulo: "Por surtir",
+    verTodo: "Ver en inventario",
+    vacio: "Todo está por encima del mínimo.",
+    existencia: (hay: number, minimo: number) => `${hay} de ${minimo} mínimo`,
+  },
+  ventas: {
+    titulo: "Últimas ventas",
+    folio: "Folio",
+    hora: "Hora",
+    cajero: "Cajero",
+    piezas: "Piezas",
+    metodo: "Pago",
+    total: "Total",
+    mixto: "Mixto",
+    reimprimir: (folio: string) => `Ver o reimprimir el ticket ${folio}`,
+    vacio: "Todavía no hay ventas hoy.",
+  },
+};
