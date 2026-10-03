@@ -42,6 +42,7 @@ lib/
   consultas.ts             todas las lecturas
   inventario.ts            reglas puras: FEFO, caducidad, alertas, IVA
   validacion-producto.ts   lectura y validación del formulario de producto
+  validacion-receta.ts     validación de la receta al vender
   detector-codigos.ts      distingue el lector de código de barras del tecleo
   csv.ts                   celdas CSV seguras
   periodos.ts              periodos de los reportes
@@ -117,7 +118,7 @@ Lo usan **Vender**, **Recibir mercancía** y el formulario de producto (llena el
 
 | Comando | Qué prueba | Cómo |
 |---|---|---|
-| `pnpm probar` | Validación de productos, lector, FEFO, alertas, IVA, periodos, CSV y formatos | `node:test` con TypeScript nativo de Node 24; `scripts/pruebas/` resuelve los imports `@/` |
+| `pnpm probar` | Validación de productos y recetas, lector, FEFO, alertas, IVA, periodos, CSV y formatos | `node:test` con TypeScript nativo de Node 24; `scripts/pruebas/` resuelve los imports `@/` |
 | `pnpm probar:base` | Migraciones, reglas RLS, funciones y disparadores | PostgreSQL temporal que imita Supabase (`supabase/pruebas/`) |
 
 No hay pruebas de punta a punta del navegador contra Supabase: requieren un Supabase local (Docker) o datos de prueba en el proyecto real.

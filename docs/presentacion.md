@@ -1,8 +1,8 @@
-# Punto de venta para farmacias
+# LaraFarma · Punto de venta para farmacias
 
 **Vende más rápido, controla tu inventario por caducidad y sabe cuánto ganas, todos los días.**
 
-> Antes de compartir este documento, cambia "Punto de venta para farmacias" por el nombre de tu sistema y agrega tus datos de contacto al final.
+> Antes de compartir este documento, agrega tus datos de contacto al final.
 
 ---
 
@@ -75,7 +75,8 @@ Un sistema en el navegador que une **caja, inventario y números del negocio**:
 
 ### Pensado para farmacia
 
-- **Antibióticos y controlados identificados:** al cobrarlos, el sistema avisa que pidas la receta (y que retengas la de controlados).
+- **Receta obligatoria:** al dar de alta un medicamento marcas "Requiere receta médica". Al venderlo, el sistema **no deja cobrar** sin capturar médico, cédula profesional y fecha de la receta. Antibióticos y controlados la piden siempre; en controlados, además, hay que confirmar que se retuvo la receta original.
+- **La receta queda guardada con la venta** y sale impresa en el ticket.
 - **IVA correcto por producto:** 0 % en medicamentos y 16 % en lo demás, desglosado en el ticket.
 - **Productos refrigerados** señalados.
 
@@ -87,7 +88,7 @@ Un sistema en el navegador que une **caja, inventario y números del negocio**:
 - **Reglas de seguridad dentro de la base de datos:** aunque alguien intente saltarse la pantalla, la base no le deja ver costos, cambiar precios ni registrar ventas si no tiene permiso.
 - **El historial no se borra:** ventas, movimientos de inventario y bitácora no se pueden editar ni eliminar.
 - **Contraseñas** guardadas por el servicio de autenticación, nunca en las tablas del sistema.
-- **Probado:** 124 pruebas automáticas de reglas de seguridad y de la lógica del sistema.
+- **Probado:** 154 pruebas automáticas de reglas de seguridad y de la lógica del sistema.
 
 ---
 
@@ -95,7 +96,7 @@ Un sistema en el navegador que une **caja, inventario y números del negocio**:
 
 ### Antes de abrir (una sola vez)
 
-1. **Da de alta tus productos.** Escanea la caja, escribe nombre, precio con IVA y si es antibiótico o controlado. El costo es opcional, pero con él ves tu margen.
+1. **Da de alta tus productos.** Escanea la caja y escribe nombre y precio con IVA. Si necesita receta, marca **Requiere receta médica** y elige si es receta simple, antibiótico o controlado. El costo es opcional, pero con él ves tu margen.
 2. **Agrega a tus proveedores** y, si quieres, categorías (analgésicos, antibióticos, higiene…).
 3. **Captura los datos de tu ticket:** razón social, RFC, dirección, teléfono y un mensaje al pie.
 4. **Crea las cuentas de tu equipo** y decide qué puede hacer el empleado.
@@ -117,7 +118,7 @@ El sistema avisa si un lote caduca pronto, no deja recibir lotes caducados y no 
 ### En el mostrador
 
 1. **Escanea** cada producto. Si no tiene código, búscalo por nombre.
-2. Si aparece **"Pide la receta antes de cobrar"**, revisa la receta.
+2. Si algún producto requiere receta, aparece **Receta obligatoria**: captura médico, cédula y fecha (y en controlados, confirma que retuviste la receta). Sin eso no se puede cobrar.
 3. Elige **efectivo, tarjeta o transferencia**. En efectivo escribe cuánto te dieron y ve el cambio.
 4. Pulsa **Cobrar** (o **F9**). Sale el ticket.
 5. **Escanea el siguiente producto** y empieza la siguiente venta.
@@ -168,7 +169,6 @@ La guía técnica paso a paso está en [instalacion.md](instalacion.md) y el man
 |---|---|
 | Cancelaciones y devoluciones con autorización de supervisor | En preparación |
 | Retiros de efectivo, mermas y ajustes de inventario desde pantalla | En preparación |
-| Captura de recetas al vender antibióticos y controlados | En preparación |
 | Facturación electrónica (CFDI 4.0) | En preparación |
 | Venta sin internet y varias sucursales | En preparación |
 

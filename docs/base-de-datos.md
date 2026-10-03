@@ -30,7 +30,7 @@ El correo y la contraseña viven en Supabase Auth (`auth.users`). Si el correo c
 |---|---|
 | `negocio` | Una sola fila: razón social, RFC, dirección, teléfono, pie del ticket, zona horaria, días de aviso de caducidad |
 | `categorias` | Categorías de producto |
-| `productos` | Código de barras, nombre, sustancia, presentación, laboratorio, clasificación (libre, antibiótico, controlado), precio, costo, IVA, mínimo, ubicación |
+| `productos` | Código de barras, nombre, sustancia, presentación, laboratorio, clasificación (libre, antibiótico, controlado), `requiere_receta`, precio, costo, IVA, mínimo, ubicación |
 | `proveedores` | Proveedores |
 
 ### Inventario
@@ -52,7 +52,7 @@ El correo y la contraseña viven en Supabase Auth (`auth.users`). Si el correo c
 | `ventas` | Ticket: folio consecutivo, turno, cajero, subtotal, IVA, total, estado |
 | `venta_partidas` | Una fila por producto y lote vendido |
 | `venta_pagos` | Forma de pago, monto, recibido |
-| `recetas` | Receta ligada a una venta (lista para usarse) |
+| `recetas` | Receta de una venta: tipo (simple, antibiótico, controlado), médico, cédula, fecha, folio, si se retuvo y quién la capturó. Cada partida que la pedía guarda `receta_id` |
 
 ## Funciones (RPC)
 
@@ -64,7 +64,7 @@ Son la única forma de escribir ventas, caja, entradas y permisos. Todas revisan
 | `marcar_contrasena_cambiada()` | cuenta activa | Quita la marca de contraseña temporal |
 | `abrir_turno(fondo)` | `caja.abrir` | Abre la primera caja libre para quien llama |
 | `cerrar_turno(contado, conteo)` | `caja.cerrar` | Cierra la caja propia y calcula el efectivo esperado |
-| `registrar_venta(partidas, metodo, recibido)` | `ventas.vender` | Toma precio e IVA del catálogo, asigna lotes FEFO, guarda venta, partidas, pago, kardex y caja |
+| `registrar_venta(partidas, metodo, recibido, referencia, receta)` | `ventas.vender` | Toma precio e IVA del catálogo, exige la receta si algún producto la pide, asigna lotes FEFO y guarda venta, receta, partidas, pago, kardex y caja |
 | `registrar_entrada(proveedor, factura, fecha, partidas)` | `inventario.entrada` | Crea o suma lotes, guarda la recepción y el kardex |
 | `guardar_permisos_empleado(claves)` | `permisos.gestionar` | Reemplaza los permisos del empleado |
 | `costos_productos()` | `inventario.costos` | Costo de cada producto |
@@ -90,10 +90,11 @@ Todas con `security_invoker`: respetan las reglas de quien consulta.
 
 - Un lote nuevo nace en 0 piezas y solo cambia con un movimiento. Nunca queda en negativo: si no alcanza, toda la venta se revierte.
 - No se vende de lotes caducados ni en cuarentena.
+- No se cobra un producto con `requiere_receta` sin médico, cédula y fecha (no futura). Si hay un controlado, la receta debe ir retenida. Antibióticos y controlados siempre tienen `requiere_receta` (un disparador lo fuerza).
 - Merma y ajuste exigen motivo. Una entrada exige recepción y una venta exige ticket.
 - Movimientos, partidas, pagos, recetas y bitácora no se editan ni se borran. Las ventas solo se cancelan, y un turno cerrado no cambia.
 - Una caja abierta por persona y un turno abierto por caja. Solo se vende con un turno abierto propio.
-- Cambiar precio o costo exige `productos.precios`; editar el resto, `productos.editar`.
+- Cambiar precio o costo exige `productos.precios`; editar el resto (incluida la casilla de receta), `productos.editar`.
 - Ningún empleado recibe permisos `solo_admin` y siempre queda un administrador activo.
 
 ## Cambiar el esquema

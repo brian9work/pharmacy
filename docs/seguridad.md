@@ -34,6 +34,7 @@ Las reglas importantes viven en la base de datos, no solo en las pantallas. Aunq
 ## Ventas y caja
 
 - El navegador manda solo **qué productos y cuántas piezas**. Precio, IVA, lotes, totales y cambio los calcula `registrar_venta` en la base.
+- **Receta obligatoria en la base:** aunque alguien se salte la pantalla, `registrar_venta` no cobra un producto que requiere receta sin médico, cédula y fecha, ni un controlado sin receta retenida.
 - El efectivo esperado del corte lo calcula `cerrar_turno`, no quien cuenta. En **corte ciego** la base no lo envía mientras la caja está abierta.
 - No se pueden insertar ventas, movimientos de caja ni de inventario directo en las tablas: no hay reglas que lo permitan.
 - Historial inmutable: ventas, partidas, pagos, movimientos y bitácora no se editan ni se borran.
@@ -68,7 +69,7 @@ Si la llave de servicio se filtra, cámbiala de inmediato en **Supabase → Proj
 pnpm probar:base
 ```
 
-Son 78 pruebas sobre un PostgreSQL que imita Supabase. Cubren:
+Son 100 pruebas sobre un PostgreSQL que imita Supabase. Cubren:
 
 - Sin sesión, sin cuenta en la farmacia y cuenta bloqueada.
 - Empleado que intenta leer costos, cambiar precios, hacerse admin, insertar ventas o retiros directos, cambiar permisos o ver reportes.
@@ -78,4 +79,6 @@ Son 78 pruebas sobre un PostgreSQL que imita Supabase. Cubren:
 - Administrador: bitácora, último admin y reportes.
 - Productos: alta solo con permiso, código repetido o inválido, IVA y precio inválidos, editar sin poder cambiar precio, nadie borra productos, producto inactivo no se vende, bitácora con precio de antes y después.
 
-Además, `pnpm probar` corre 46 pruebas de la lógica de la aplicación.
+- Receta: venta sin receta, sin cédula, con fecha futura o de controlado sin retener (bloqueadas); ventas con receta simple, de antibiótico y de controlado; carrito mixto; antibióticos que siempre la piden.
+
+Además, `pnpm probar` corre 54 pruebas de la lógica de la aplicación.

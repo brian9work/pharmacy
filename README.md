@@ -1,12 +1,13 @@
-# Sistema de farmacia
+# LaraFarma
 
-Punto de venta e inventario para una farmacia de mostrador: venta con lector de código de barras, ticket impreso, caja con corte, inventario por lote y caducidad, usuarios con permisos y reportes financieros.
+Punto de venta e inventario de la farmacia LaraFarma: venta con lector de código de barras, ticket impreso, caja con corte, inventario por lote y caducidad, usuarios con permisos y reportes financieros.
 
 Hecho con Next.js 16, React 19, Tailwind 4 y Supabase (base de datos PostgreSQL y autenticación).
 
 ## Qué hace
 
 - **Vender:** escaneas el código de barras y el producto entra al carrito. Al cobrar se imprime el ticket.
+- **Receta obligatoria:** los productos marcados con "Requiere receta médica" (y siempre antibióticos y controlados) no se cobran sin capturar médico, cédula y fecha; los controlados, además, con la receta retenida.
 - **Lotes y caducidad:** cada pieza sale del lote que caduca antes (FEFO). No se vende de lotes caducados ni bloqueados.
 - **Caja:** apertura con fondo, cobro en efectivo, tarjeta o transferencia y corte por billetes y monedas. El efectivo esperado lo calcula la base.
 - **Recibir mercancía:** entradas del proveedor con lote, caducidad y costo, también con el lector.

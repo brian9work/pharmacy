@@ -77,9 +77,20 @@ Pedidos nuevos:
   - El CSV ponía un apóstrofo a los números negativos y Excel los habría leído como texto.
   - El margen del detalle de producto se calculaba con IVA y no coincidía con Reportes.
 
+## 7. Receta obligatoria y nombre LaraFarma (3 de octubre)
+
+- El sistema se llama **LaraFarma**, como la farmacia.
+- **Casilla "Requiere receta médica"** al dar de alta o editar un producto. Si se marca, se elige el tipo: receta simple, antibiótico o controlado.
+- **Al vender, sin receta no se cobra.** El carrito pide médico, cédula, fecha y folio (opcional); en controlados, confirmar que se retuvo la receta original.
+  - La regla también está en la base (`registrar_venta`).
+  - La receta se guarda en `recetas`, ligada a la venta y a cada partida, y sale en el ticket.
+- Migración `20261003150000_receta_obligatoria.sql`.
+- Pruebas: 54 unitarias y 100 de base.
+
 ## Pendientes en Supabase
 
 - Apagar el registro público (**Allow new users to sign up**).
+- Aplicar `supabase/migrations/20261003150000_receta_obligatoria.sql` antes de publicar esta versión en Vercel.
 
 ## Lo que sigue
 
@@ -87,7 +98,7 @@ En orden sugerido:
 
 1. **Cancelaciones y devoluciones** con autorización de supervisor (permisos `ventas.cancelar` y `ventas.devolucion`).
 2. **Retiros de efectivo, mermas, ajustes y bloqueo de lotes** desde pantalla (permisos ya definidos).
-3. **Captura de recetas** al vender antibióticos y controlados (tabla `recetas` lista).
+3. **Libro de recetas:** reporte de ventas con receta (antibióticos y controlados) con médico, cédula, producto, lote y cantidad, para el control sanitario.
 4. **Facturación CFDI 4.0** con un proveedor autorizado (PAC).
 5. **Venta sin internet** (PWA con sincronización) y varias sucursales.
 6. **Tipos generados de Supabase** (`supabase gen types`) para quitar las conversiones manuales en `lib/consultas.ts`.

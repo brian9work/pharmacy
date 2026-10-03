@@ -28,7 +28,7 @@ Cada persona tiene una sola caja abierta a la vez y cada caja la usa una sola pe
    - Funciona aunque el cursor esté en otro campo o botón.
 3. Si no tienes el código a la mano, escribe parte del nombre o de la sustancia, elige con **↑ ↓** y agrega con **Enter**.
 4. Ajusta cantidades con **−** y **+**, o quita un producto con **×**.
-5. Si aparece el aviso **Pide la receta antes de cobrar**, el carrito tiene antibióticos o controlados. Revisa la receta; la de controlados se retiene.
+5. Si el carrito tiene productos con receta, aparece **Receta obligatoria**. Captura **médico**, **cédula profesional** y **fecha de la receta** (el folio es opcional). En controlados marca además **Retuve la receta original**. Mientras falte algo, **Cobrar** está desactivado y abajo se dice qué falta.
 
 El carrito muestra de qué lote sale cada pieza (siempre el que caduca antes) y avisa si ese lote está por caducar.
 
@@ -47,7 +47,7 @@ La base de datos vuelve a calcular precios, lotes y totales. Si algo cambió (po
 - Para reimprimir uno anterior: en **Panel → Últimas ventas**, pulsa el folio.
 - Escanear el siguiente producto empieza otra venta.
 
-El ticket lleva el nombre del negocio, razón social, RFC, dirección y teléfono (pantalla **Configuración**). Después vienen folio, fecha, caja, quién atendió, productos, subtotal, IVA, total, pago, cambio y piezas.
+El ticket lleva el nombre del negocio, razón social, RFC, dirección y teléfono (pantalla **Configuración**). Después vienen folio, fecha, caja, quién atendió, productos, subtotal, IVA, total, pago, cambio y piezas, y, si la venta llevó receta, médico, cédula, folio y si se retuvo.
 
 ### Atajos de teclado
 
@@ -115,7 +115,7 @@ Necesitas el permiso **Dar de alta productos**.
 1. Ve a **Nuevo producto** (también desde el botón en **Inventario**).
 2. **Escanea la caja:** el código de barras se llena solo. Si ese código ya es de otro producto, te avisa y no deja guardar.
 3. Escribe nombre (como lo busca el cajero), sustancia, presentación y laboratorio, y elige la categoría o crea una nueva.
-4. Elige **cómo se vende**: venta libre, antibiótico (se pide receta al cobrar) o controlado (receta retenida).
+4. Si el medicamento necesita receta, marca **Requiere receta médica** y elige el tipo: receta simple, antibiótico o controlado (receta retenida). Al venderlo, el sistema no dejará cobrar sin capturar la receta.
 5. Escribe el **precio con IVA** y el IVA: 0 % para medicamentos, 16 % para lo demás. Debajo ves el desglose.
 6. Opcional: **costo por pieza** (ves el margen al momento), stock mínimo, ubicación y si requiere refrigeración.
 7. Pulsa **Guardar producto**. Después registra sus piezas con **Recibir mercancía** (el botón aparece al guardar).
@@ -153,6 +153,5 @@ Por ahora se hacen desde el panel de Supabase (Table Editor) o están listos en 
 
 - Cancelar ventas y registrar devoluciones.
 - Retiros de efectivo, mermas, ajustes de inventario y bloqueo de lotes.
-- Captura de recetas (tabla `recetas`).
 
 Ver [Historial → Lo que sigue](historial.md#lo-que-sigue).

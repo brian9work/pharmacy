@@ -27,6 +27,7 @@ En **SQL Editor** ejecuta, en este orden, el contenido de cada archivo:
 | 1 | `supabase/migrations/20261002120000_esquema.sql` | Tablas, reglas RLS, funciones de venta, caja, entradas y permisos |
 | 2 | `supabase/migrations/20261002120100_datos_iniciales.sql` | Negocio, Caja 1, roles y los 22 permisos |
 | 3 | `supabase/migrations/20261003120000_reportes.sql` | Reportes y exportación |
+| 4 | `supabase/migrations/20261003150000_receta_obligatoria.sql` | Casilla "Requiere receta médica" y receta obligatoria al vender |
 | — | `supabase/seed.sql` (opcional) | 16 productos y 20 lotes de ejemplo |
 
 Si usas la CLI de Supabase, `supabase db push` aplica las migraciones en orden.
