@@ -18,6 +18,20 @@ exception when others then
 end;
 $$;
 
+-- Como pruebas.error, pero además exige que el mensaje diga `esperado`.
+create function pruebas.error_con(consulta text, esperado text, que text) returns void language plpgsql as $$
+begin
+  execute consulta;
+  raise exception 'FALLO: se esperaba error en "%"', que;
+exception when others then
+  if sqlerrm like 'FALLO:%' then raise; end if;
+  if position(esperado in sqlerrm) = 0 then
+    raise exception 'FALLO: "%" falló por otra razón: %', que, sqlerrm;
+  end if;
+  raise notice 'OK (bloqueado) %  →  %', que, sqlerrm;
+end;
+$$;
+
 create function pruebas.cumple(cond boolean, que text) returns void language plpgsql as $$
 begin
   if cond is not true then raise exception 'FALLO: %', que; end if;
@@ -95,7 +109,8 @@ select pruebas.cumple((
 select pruebas.cumple((select cantidad = 0 from public.lotes where numero = 'PA2611'), 'FEFO: vació primero el lote que caduca antes');
 select pruebas.cumple((select cantidad = 38 from public.lotes where numero = 'PA2708'), 'FEFO: tomó el resto del siguiente lote');
 select pruebas.cumple((select count(*) = 2 from public.venta_partidas), 'una partida por lote');
-select pruebas.error($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Amoxicilina 500 mg'), 'cantidad', 25)), 'tarjeta')$$, 'vende 25 amoxicilina (solo 22 vendibles)');
+select pruebas.error_con($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Amoxicilina 500 mg'), 'cantidad', 25)), 'tarjeta', null, '', jsonb_build_object('medico', 'Dra. Ana Ruiz', 'cedula', '1234567', 'fecha', public.hoy_local()))$$, 'No hay suficientes piezas', 'vende 25 amoxicilina con receta (solo 22 vendibles)');
+select pruebas.error_con($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Amoxicilina 500 mg'), 'cantidad', 1)), 'tarjeta')$$, 'captura médico, cédula y fecha', 'empleado vende antibiótico sin receta');
 select pruebas.cumple((select cantidad = 22 from public.lotes where numero = 'AM2705'), 'la venta fallida no descontó nada');
 select pruebas.error($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Ibuprofeno 400 mg'), 'cantidad', 1)), 'efectivo', 100)$$, 'efectivo que no alcanza');
 select pruebas.cumple((select ventas = 1 and efectivo_esperado is null from public.resumen_turnos), 'corte ciego: no ve efectivo esperado con caja abierta');
@@ -220,3 +235,76 @@ select pruebas.cumple((
   where u.correo = 'ana@farmacia.mx' and b.accion = 'productos.update' and b.entidad_id = (select id::text from public.productos where codigo_barras = '7509999000017')
   order by b.id desc limit 1
 ), 'bitácora guarda el precio de antes y el de después');
+
+\echo '--- Receta obligatoria'
+select pruebas.cumple((select bool_and(requiere_receta) from public.productos where clasificacion <> 'libre'), 'antibióticos y controlados quedaron con receta obligatoria');
+select pruebas.cumple((select not requiere_receta from public.productos where nombre = 'Paracetamol 500 mg'), 'venta libre sigue sin receta');
+
+select pruebas.como('ana@farmacia.mx');
+set role authenticated;
+-- Ana tiene su caja abierta desde la sección de productos.
+select pruebas.error_con($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Amoxicilina 500 mg'), 'cantidad', 1)), 'efectivo')$$,
+  'captura médico, cédula y fecha', 'antibiótico sin receta');
+select pruebas.error_con($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Amoxicilina 500 mg'), 'cantidad', 1)), 'efectivo', null, '', jsonb_build_object('medico', 'Dr. Luis Gómez', 'fecha', public.hoy_local()))$$,
+  'captura médico, cédula y fecha', 'receta sin cédula');
+select pruebas.error_con($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Amoxicilina 500 mg'), 'cantidad', 1)), 'efectivo', null, '', jsonb_build_object('medico', 'Dr. Luis Gómez', 'cedula', '12345678', 'fecha', public.hoy_local() + 1))$$,
+  'no puede ser futura', 'receta con fecha futura');
+select pruebas.error_con($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Amoxicilina 500 mg'), 'cantidad', 1)), 'efectivo', null, '', '"texto"'::jsonb)$$,
+  'captura médico, cédula y fecha', 'receta que no es un objeto');
+
+select pruebas.cumple((
+  select (public.registrar_venta(
+    jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Amoxicilina 500 mg'), 'cantidad', 1)),
+    'efectivo', null, '', jsonb_build_object('medico', '  Dr. Luis Gómez ', 'cedula', ' ab12345 ', 'fecha', public.hoy_local(), 'folio', 'R-100')
+  ) ->> 'receta_id') is not null), 'antibiótico con receta se cobra');
+select pruebas.cumple((
+  select tipo = 'antibiotico' and medico = 'Dr. Luis Gómez' and cedula = 'AB12345' and folio_receta = 'R-100' and not retenida
+  from public.recetas order by creado_en desc limit 1), 'receta guardada como antibiótico, limpia y con folio');
+select pruebas.cumple((
+  select count(*) = 1 from public.venta_partidas vp join public.recetas r on r.id = vp.receta_id where r.medico = 'Dr. Luis Gómez'),
+  'la partida queda ligada a su receta');
+
+select pruebas.error_con($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Clonazepam 2 mg'), 'cantidad', 1)), 'efectivo', null, '', jsonb_build_object('medico', 'Dra. Paz Ríos', 'cedula', '7654321', 'fecha', public.hoy_local()))$$,
+  'retener la receta original', 'controlado sin retener la receta');
+select pruebas.cumple((
+  select (public.registrar_venta(
+    jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Clonazepam 2 mg'), 'cantidad', 1)),
+    'efectivo', null, '', jsonb_build_object('medico', 'Dra. Paz Ríos', 'cedula', '7654321', 'fecha', public.hoy_local(), 'retenida', true)
+  ) ->> 'receta_id') is not null), 'controlado con receta retenida se cobra');
+select pruebas.cumple((select tipo = 'controlado' and retenida from public.recetas order by creado_en desc limit 1), 'receta del controlado queda como retenida');
+
+-- La casilla "Requiere receta médica" en un producto de venta libre.
+update public.productos set requiere_receta = true where nombre = 'Ibuprofeno 400 mg';
+select pruebas.error_con($$select public.registrar_venta(jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Ibuprofeno 400 mg'), 'cantidad', 1)), 'tarjeta')$$,
+  'captura médico, cédula y fecha', 'producto con la casilla de receta, sin receta');
+select pruebas.cumple((
+  select (public.registrar_venta(
+    jsonb_build_array(
+      jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Paracetamol 500 mg'), 'cantidad', 1),
+      jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Ibuprofeno 400 mg'), 'cantidad', 1)),
+    'tarjeta', null, '', jsonb_build_object('medico', 'Dr. Luis Gómez', 'cedula', '12345678', 'fecha', public.hoy_local() - 3)
+  ) ->> 'receta_id') is not null), 'carrito mixto con receta simple se cobra');
+select pruebas.cumple((select tipo = 'simple' from public.recetas order by creado_en desc limit 1), 'la receta es de tipo simple');
+select pruebas.cumple((
+  select count(*) filter (where vp.receta_id is null) = 1 and count(*) filter (where vp.receta_id is not null) = 1
+  from public.venta_partidas vp where vp.venta_id = (select id from public.ventas order by folio desc limit 1)),
+  'solo el producto con receta queda ligado a ella');
+select pruebas.cumple((
+  select (public.registrar_venta(
+    jsonb_build_array(jsonb_build_object('producto_id', (select id from public.productos where nombre = 'Paracetamol 500 mg'), 'cantidad', 1)),
+    'tarjeta', null, '', jsonb_build_object('medico', 'Dr. Luis Gómez', 'cedula', '12345678', 'fecha', public.hoy_local())
+  ) ->> 'receta_id') is null), 'venta sin productos con receta no guarda receta');
+
+insert into public.productos (nombre, precio, clasificacion, requiere_receta) values ('Cefalexina de prueba', 9000, 'antibiotico', false);
+select pruebas.cumple((select requiere_receta from public.productos where nombre = 'Cefalexina de prueba'), 'un antibiótico siempre requiere receta aunque se mande falso');
+update public.productos set requiere_receta = false where nombre = 'Cefalexina de prueba';
+select pruebas.cumple((select requiere_receta from public.productos where nombre = 'Cefalexina de prueba'), 'y no se le puede quitar');
+select public.guardar_permisos_empleado(array['ventas.vender', 'inventario.ver', 'productos.precios']);
+reset role;
+
+select pruebas.como('carlos.ruiz@farmacia.mx');
+set role authenticated;
+select pruebas.error_con($$update public.productos set requiere_receta = false where nombre = 'Ibuprofeno 400 mg'$$,
+  'No tienes permiso para editar productos', 'quitar la receta con permiso de precios pero no de edición');
+select pruebas.cumple((select count(*) = 1 from public.productos where nombre = 'Ibuprofeno 400 mg' and requiere_receta), 'el empleado ve la casilla de receta');
+reset role;
