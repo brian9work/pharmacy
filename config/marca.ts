@@ -6,9 +6,9 @@
 
 export const marca = {
   /** Nombre completo: aparece en el acceso y en la pestaña del navegador. */
-  nombre: "Mi Farmacia",
+  nombre: "LaraFarma",
   /** Versión corta para la barra lateral. Si el nombre es corto, repítelo. */
-  nombreCorto: "Mi Farmacia",
+  nombreCorto: "LaraFarma",
   /** Frase bajo el nombre en la pantalla de acceso. */
   descripcion: "Punto de venta e inventario",
   logo: {
