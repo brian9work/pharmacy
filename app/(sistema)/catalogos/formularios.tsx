@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
 import { botonSecundario, campo, etiquetaCampo } from "@/app/components/estilos";
 import type { Categoria, ProveedorCompleto } from "@/lib/tipos";
+import { useFormulario } from "@/app/components/formulario";
 import { guardarCategoria, guardarProveedor } from "./acciones";
 import { catalogos as textos } from "./contenido";
 
@@ -16,12 +16,12 @@ function Mensaje({ error, ok }: { error?: string; ok?: boolean }) {
 
 /** Alta (sin `proveedor`) o edición de un proveedor. */
 export function FormularioProveedor({ proveedor }: { proveedor?: ProveedorCompleto }) {
-  const [estado, enviar, enviando] = useActionState(guardarProveedor, {});
+  const { estado, enviar, alEnviar, enviando } = useFormulario(guardarProveedor, {});
   const prefijo = proveedor ? `proveedor-${proveedor.id}` : "proveedor-nuevo";
   const t = textos.proveedores;
 
   return (
-    <form action={enviar} className="grid gap-4 sm:grid-cols-2">
+    <form {...(proveedor ? { onSubmit: alEnviar } : { action: enviar })} className="grid gap-4 sm:grid-cols-2">
       {proveedor && <input type="hidden" name="id" value={proveedor.id} />}
       <div className="sm:col-span-2">
         <label htmlFor={`${prefijo}-nombre`} className={etiquetaCampo}>
@@ -78,12 +78,12 @@ export function FormularioProveedor({ proveedor }: { proveedor?: ProveedorComple
 
 /** Alta (sin `categoria`) o cambio de nombre de una categoría. */
 export function FormularioCategoria({ categoria }: { categoria?: Categoria }) {
-  const [estado, enviar, enviando] = useActionState(guardarCategoria, {});
+  const { estado, enviar, alEnviar, enviando } = useFormulario(guardarCategoria, {});
   const id = categoria ? `categoria-${categoria.id}` : "categoria-nueva";
   const t = textos.categorias;
 
   return (
-    <form action={enviar} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+    <form {...(categoria ? { onSubmit: alEnviar } : { action: enviar })} className="flex flex-col gap-3 sm:flex-row sm:items-end">
       {categoria && <input type="hidden" name="id" value={categoria.id} />}
       <div className="min-w-0 flex-1">
         <label htmlFor={id} className={categoria ? "sr-only" : etiquetaCampo}>

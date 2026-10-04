@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
 import { ayudaCampo, botonPrincipal, campo, etiquetaCampo, tarjeta } from "@/app/components/estilos";
+import { useFormulario } from "@/app/components/formulario";
 import { guardarNegocio } from "./acciones";
 import { configuracion as textos } from "./contenido";
 
@@ -14,11 +14,11 @@ interface Negocio {
 }
 
 export function FormularioNegocio({ negocio }: { negocio: Negocio }) {
-  const [estado, enviar, enviando] = useActionState(guardarNegocio, {});
+  const { estado, alEnviar, enviando } = useFormulario(guardarNegocio, {});
   const mensaje = estado.error ?? (estado.ok ? textos.guardado : "");
 
   return (
-    <form action={enviar} className={`${tarjeta} max-w-2xl space-y-6 sm:p-8`}>
+    <form onSubmit={alEnviar} className={`${tarjeta} max-w-2xl space-y-6 sm:p-8`}>
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label htmlFor="razonSocial" className={etiquetaCampo}>

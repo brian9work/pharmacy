@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
 import { ayudaCampo, botonPrincipal, campo, enlace, etiquetaCampo, tarjeta } from "@/app/components/estilos";
 import { ROLES, type Rol } from "@/config/permisos";
+import { useFormulario } from "@/app/components/formulario";
 import { crearUsuario } from "../acciones";
 import { usuarios } from "../contenido";
 
@@ -11,10 +11,10 @@ const textos = usuarios.alta;
 const roles = Object.entries(ROLES) as [Rol, (typeof ROLES)[Rol]][];
 
 export function FormularioUsuario() {
-  const [estado, enviar, enviando] = useActionState(crearUsuario, {});
+  const { estado, alEnviar, enviando } = useFormulario(crearUsuario, {});
 
   return (
-    <form action={enviar} className={`${tarjeta} max-w-2xl space-y-6 sm:p-8`}>
+    <form onSubmit={alEnviar} className={`${tarjeta} max-w-2xl space-y-6 sm:p-8`}>
       <p role="alert" className={estado.error ? "rounded-2xl bg-danger/10 px-4 py-3 text-[15px] text-danger" : "sr-only"}>
         {estado.error}
       </p>

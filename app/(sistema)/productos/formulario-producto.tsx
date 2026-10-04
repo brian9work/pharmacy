@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ayudaCampo,
   botonPrincipal,
@@ -11,6 +11,7 @@ import {
   etiquetaCampo,
   tarjeta,
 } from "@/app/components/estilos";
+import { useFormulario } from "@/app/components/formulario";
 import { Icono } from "@/app/components/icono";
 import { sonar, useLectorCodigos } from "@/app/components/lector-codigos";
 import { dinero, porcentaje } from "@/lib/formato";
@@ -48,7 +49,7 @@ const pesos = (centavos: number) => (centavos / 100).toFixed(2);
 
 export function FormularioProducto({ producto, costo, categorias, codigos, permisos }: Props) {
   const nuevo = !producto;
-  const [estado, enviar, enviando] = useActionState(nuevo ? crearProducto : editarProducto, {});
+  const { estado, alEnviar, enviando } = useFormulario(nuevo ? crearProducto : editarProducto, {});
   const [codigo, setCodigo] = useState(producto?.codigoBarras ?? "");
   const [categoria, setCategoria] = useState(producto?.categoriaId ? String(producto.categoriaId) : "");
   const [precio, setPrecio] = useState(producto ? pesos(producto.precio) : "");
@@ -79,7 +80,7 @@ export function FormularioProducto({ producto, costo, categorias, codigos, permi
   const margen = desglose && costoCentavos !== null && desglose.base > 0 ? (desglose.base - costoCentavos) / desglose.base : null;
 
   return (
-    <form action={enviar} className="max-w-3xl space-y-6">
+    <form onSubmit={alEnviar} className="max-w-3xl space-y-6">
       {producto && <input type="hidden" name="id" value={producto.id} />}
 
       <Grupo id="grupo-identificacion" titulo={textos.secciones.identificacion}>

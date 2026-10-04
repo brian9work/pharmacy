@@ -1,16 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
 import { botonPrincipal, campo, etiquetaCampo } from "@/app/components/estilos";
+import { useFormulario } from "@/app/components/formulario";
 import { iniciarSesion } from "./acciones-sesion";
 import { acceso } from "./contenido";
 
 export function FormularioAcceso({ aviso }: { aviso?: string }) {
-  const [estado, enviar, enviando] = useActionState(iniciarSesion, {});
+  const { estado, alEnviar, enviando } = useFormulario(iniciarSesion, {});
   const mensaje = estado.error ?? aviso;
 
   return (
-    <form action={enviar} className="mt-10 rounded-3xl bg-background p-6 sm:p-8">
+    <form onSubmit={alEnviar} className="mt-10 rounded-3xl bg-background p-6 sm:p-8">
       <h1 className="text-xl font-semibold tracking-tight">{acceso.titulo}</h1>
 
       <p role="alert" className={mensaje ? "mt-4 rounded-2xl bg-danger/10 px-4 py-3 text-[15px] text-danger" : "sr-only"}>

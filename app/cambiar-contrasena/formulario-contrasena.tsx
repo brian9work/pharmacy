@@ -1,16 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
 import { ayudaCampo, botonPrincipal, campo, enlace, etiquetaCampo } from "@/app/components/estilos";
+import { useFormulario } from "@/app/components/formulario";
 import { cambiarContrasena, cerrarSesion } from "../acciones-sesion";
 import { cambioContrasena as textos } from "../contenido";
 
 export function FormularioContrasena({ correo }: { correo: string }) {
-  const [estado, enviar, enviando] = useActionState(cambiarContrasena, {});
+  const { estado, alEnviar, enviando } = useFormulario(cambiarContrasena, {});
 
   return (
     <>
-      <form action={enviar} className="mt-8 rounded-3xl bg-background p-6 sm:p-8">
+      <form onSubmit={alEnviar} className="mt-8 rounded-3xl bg-background p-6 sm:p-8">
         <h1 className="text-xl font-semibold tracking-tight">{textos.titulo}</h1>
         <p className="mt-2 text-[15px] leading-6 text-muted">{textos.descripcion}</p>
 
