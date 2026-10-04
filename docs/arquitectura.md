@@ -91,6 +91,8 @@ Cada pantalla tiene:
 | Ticket armado con lo guardado en la base | Lo impreso es exactamente lo cobrado |
 | Lector de códigos detectado por velocidad de tecleo | Funciona con cualquier lector en modo teclado, esté donde esté el cursor |
 | Textos separados del marcado y diseño de `design.md` | Coherencia visual y cambios de texto sin riesgo |
+| Estilos base con versión "Libre" (`campoLibre`, `tarjetaLibre`…) | En Tailwind no gana la clase escrita al final: agregar `h-10` a un estilo que ya trae `h-11` no funciona |
+| Formularios de edición con `useFormulario` (onSubmit) | Con `<form action>`, React 19 reinicia los campos al guardar y un selector vuelve a su opción original |
 
 ## Lector de código de barras
 

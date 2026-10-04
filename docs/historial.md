@@ -87,6 +87,37 @@ Pedidos nuevos:
 - Migración `20261003150000_receta_obligatoria.sql`.
 - Pruebas: 54 unitarias y 100 de base.
 
+## 8. Pruebas en el navegador sobre Vercel (3 de octubre)
+
+Pruebas en larafarma.vercel.app con la sesión del administrador, en un entorno de pruebas.
+
+**Funcionó como se esperaba:**
+- Alta de proveedor y categoría.
+- Nuevo producto con el lector: el código se llena solo, avisa si ya existe y bloquea el guardado.
+- Casilla de receta, desglose de IVA y margen.
+- Recibir mercancía escaneando: el mismo producto suma piezas y el lote se guarda en mayúsculas.
+- Venta con receta obligatoria:
+  - **F9** sin receta no cobra y lleva al campo del médico.
+  - Con receta cobra, calcula el cambio y manda imprimir el ticket con médico, cédula y folio.
+- Reimpresión de tickets, corte de caja que cuadra, reapertura de caja.
+- Reportes del día (ventas, utilidad, IVA, compras) y exportación CSV con marca para Excel.
+- Permisos del empleado: se guardan y quedan en la bitácora.
+- **Seguridad en la base real:** llamando a Supabase directo con la sesión, sin la pantalla, se rechaza una venta sin receta o con receta incompleta, insertar una venta en la tabla y quitarle la receta a un antibiótico.
+
+**Errores encontrados y corregidos:**
+1. **Corte de caja:** los campos de billetes y monedas se estiraban a todo lo ancho y se salían de la tarjeta. Las clases de tamaño agregadas a los estilos base no ganaban en el CSS; ahora hay versiones sin tamaño (`campoLibre`, `tarjetaLibre`…).
+2. **Aviso de receta pegado:** "Escribe el nombre del médico" seguía visible con la receta completa.
+3. **Receta heredada:** al vaciar el carrito, la receta del cliente anterior se quedaba capturada.
+4. **Celular:** Usuarios (700 px) y Reportes (414 px) se salían de lado en 390 px. Un texto oculto para lectores de pantalla en las tablas y las rejillas sin `min-w-0`.
+5. **Formularios:**
+   - Tras guardar, un selector volvía a su opción original: un producto o proveedor desactivado aparecía "Activo" y otro guardado lo habría reactivado.
+   - El acceso borraba el correo tras una contraseña equivocada y Nuevo usuario borraba todo ante un error.
+   - Ahora esos formularios envían sin el reinicio automático de React (`useFormulario`).
+
+**Observaciones:**
+- El folio **V-000003** no existe: lo consumió el intento de insertar una venta directo en la tabla, que la base rechazó. PostgreSQL no devuelve números de un consecutivo aunque la operación se cancele.
+- Un primer envío se perdió justo cuando Vercel cambiaba de versión: Next recargó la página. No se repitió.
+
 ## Pendientes en Supabase
 
 - Apagar el registro público (**Allow new users to sign up**).
