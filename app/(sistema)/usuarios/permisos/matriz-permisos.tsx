@@ -102,7 +102,7 @@ export function MatrizPermisos({ catalogo, asignados }: { catalogo: Permiso[]; a
             <h2 id={`modulo-${modulo}`} className="mb-4 text-xl font-semibold tracking-tight">
               {MODULOS[modulo]}
             </h2>
-            <div className="overflow-x-auto rounded-3xl bg-surface">
+            <div className="relative overflow-x-auto rounded-3xl bg-surface">
               <table className="w-full table-fixed text-left text-[15px]">
                 <colgroup>
                   <col />

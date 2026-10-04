@@ -130,7 +130,10 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
   function fijarCantidad(productoId: string, cantidad: number): boolean {
     const articulo = porId.get(productoId)!;
     if (cantidad <= 0) {
-      setPartidas((ps) => ps.filter((p) => p.productoId !== productoId));
+      const quedan = partidas.filter((p) => p.productoId !== productoId);
+      setPartidas(quedan);
+      // Carrito vacío = otro cliente: que no herede la receta del anterior.
+      if (quedan.length === 0) setReceta(recetaNueva());
       setAviso("");
       return true;
     }
@@ -204,6 +207,12 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
       setMetodo("efectivo");
       setAviso("");
     });
+  }
+
+  function vaciarCarrito() {
+    setPartidas([]);
+    setReceta(recetaNueva());
+    setAviso("");
   }
 
   function nuevaVenta() {
@@ -401,7 +410,7 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
                 {venta.carrito.titulo}
               </h2>
               {lineas.length > 0 && (
-                <button type="button" onClick={() => setPartidas([])} className={`${enlace} text-[15px]`}>
+                <button type="button" onClick={vaciarCarrito} className={`${enlace} text-[15px]`}>
                   {venta.carrito.vaciar}
                 </button>
               )}

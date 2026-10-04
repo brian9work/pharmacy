@@ -133,6 +133,7 @@ export default async function Panel() {
         <div className="grid gap-10 lg:grid-cols-2 lg:gap-6">
           <Seccion
             id="por-caducar"
+            className="min-w-0"
             titulo={panel.porCaducar.titulo}
             accion={
               <Link href="/inventario?filtro=por-caducar" className={`${enlace} text-[15px]`}>
@@ -168,6 +169,7 @@ export default async function Panel() {
 
           <Seccion
             id="por-surtir"
+            className="min-w-0"
             titulo={panel.stockBajo.titulo}
             accion={
               <Link href="/inventario?filtro=por-surtir" className={`${enlace} text-[15px]`}>

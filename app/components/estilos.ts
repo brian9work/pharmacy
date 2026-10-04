@@ -36,8 +36,12 @@ export const tarjeta = `${tarjetaLibre} p-6`;
 
 export const etiquetaSobreTitulo = "text-xs font-semibold uppercase tracking-wider text-muted";
 
-/** Tabla dentro de una tarjeta: el contenedor se desplaza, la página no. */
-export const contenedorTabla = "overflow-x-auto rounded-3xl bg-surface";
+/**
+ * Tabla dentro de una tarjeta: el contenedor se desplaza, la página no.
+ * `relative` hace que los textos sr-only de la tabla (posición absoluta)
+ * también queden dentro; sin él empujan la página hacia los lados en celular.
+ */
+export const contenedorTabla = "relative overflow-x-auto rounded-3xl bg-surface";
 export const tablaLibre = "w-full text-left";
 export const tabla = `${tablaLibre} text-[15px]`;
 export const celdaEncabezado = "px-5 py-3 text-xs font-semibold uppercase tracking-wider text-muted";

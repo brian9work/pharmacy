@@ -96,7 +96,7 @@ function TablaDatos({ titulo, filas }: { titulo: string; filas: Barra[] }) {
   return (
     <details className="group mt-4">
       <summary className="cursor-pointer text-[15px] text-accent hover:underline">{textos.grafica.tabla}</summary>
-      <div className="mt-3 max-h-80 overflow-auto rounded-2xl bg-background">
+      <div className="relative mt-3 max-h-80 overflow-auto rounded-2xl bg-background">
         <table className={`${tablaLibre} text-[13px]`}>
           <caption className="sr-only">{titulo}</caption>
           <thead>
@@ -291,7 +291,7 @@ export default async function Reportes({ searchParams }: PageProps<"/reportes">)
       )}
 
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-6">
-        <Seccion id="metodos" titulo={textos.metodos.titulo}>
+        <Seccion id="metodos" titulo={textos.metodos.titulo} className="min-w-0">
           {reporte.porMetodo.length === 0 ? (
             <p className={`${tarjeta} text-[15px] text-muted`}>{textos.vacio}</p>
           ) : (
@@ -317,7 +317,7 @@ export default async function Reportes({ searchParams }: PageProps<"/reportes">)
           )}
         </Seccion>
 
-        <Seccion id="cajeros" titulo={textos.cajeros.titulo}>
+        <Seccion id="cajeros" titulo={textos.cajeros.titulo} className="min-w-0">
           {reporte.porCajero.length === 0 ? (
             <p className={`${tarjeta} text-[15px] text-muted`}>{textos.vacio}</p>
           ) : (
