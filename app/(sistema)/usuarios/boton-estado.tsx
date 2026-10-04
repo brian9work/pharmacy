@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { botonSecundario } from "@/app/components/estilos";
+import { botonSecundarioChico } from "@/app/components/estilos";
 import { cambiarEstadoUsuario } from "./acciones";
 import { usuarios as textos } from "./contenido";
 
@@ -17,7 +17,7 @@ export function BotonEstado({ id, nombre, activo }: { id: string; nombre: string
         type="submit"
         disabled={enviando}
         aria-label={activo ? textos.bloquearEtiqueta(nombre) : textos.activarEtiqueta(nombre)}
-        className={`${botonSecundario} px-4 py-2 ${activo ? "text-danger" : ""}`}
+        className={`${botonSecundarioChico} ${activo ? "text-danger" : ""}`}
       >
         {activo ? textos.bloquear : textos.activar}
       </button>

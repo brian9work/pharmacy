@@ -9,6 +9,7 @@ import {
   botonPrincipal,
   botonSecundario,
   campo,
+  campoLibre,
   enlace,
   etiquetaCampo,
   tarjeta,
@@ -44,7 +45,7 @@ interface VentaConfirmada {
 const METODOS: MetodoPago[] = ["efectivo", "tarjeta", "transferencia"];
 const MAX_RESULTADOS = 8;
 const claseEtiquetaReceta = "mb-1 block text-[13px] font-medium";
-const claseCampoReceta = `${campo} h-10 text-[15px]`;
+const claseCampoReceta = `${campoLibre} h-10 w-full px-3 text-[15px]`;
 
 function normalizar(texto: string) {
   return texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
@@ -123,6 +124,7 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
 
   function cambiarReceta(campo: "medico" | "cedula" | "fecha" | "folio", valor: string) {
     setReceta((r) => ({ ...r, [campo]: valor }));
+    setAviso("");
   }
 
   function fijarCantidad(productoId: string, cantidad: number): boolean {
@@ -275,7 +277,7 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
             }}
             onKeyDown={alTeclearBusqueda}
             placeholder={venta.buscar.placeholder}
-            className={`${campo} h-14 pl-12 text-lg`}
+            className={`${campoLibre} h-14 w-full pl-12 pr-4 text-lg`}
           />
         </div>
 
@@ -540,7 +542,10 @@ export function PuntoDeVenta({ catalogo, hoy }: { catalogo: Articulo[]; hoy: str
                       <input
                         type="checkbox"
                         checked={receta.retenida}
-                        onChange={(e) => setReceta((r) => ({ ...r, retenida: e.target.checked }))}
+                        onChange={(e) => {
+                          setReceta((r) => ({ ...r, retenida: e.target.checked }));
+                          setAviso("");
+                        }}
                         className="mt-0.5 size-4 shrink-0 accent-accent"
                       />
                       {venta.receta.retenida}

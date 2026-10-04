@@ -7,12 +7,14 @@ import { EncabezadoPagina, Seccion } from "@/app/components/encabezado-pagina";
 import {
   botonIcono,
   botonSecundario,
+  botonSecundarioChico,
   campo,
   celda,
   celdaEncabezado,
   contenedorTabla,
   etiquetaCampo,
   tabla,
+  tablaLibre,
   tarjeta,
 } from "@/app/components/estilos";
 import { GraficaBarras, type Barra } from "@/app/components/grafica-barras";
@@ -95,7 +97,7 @@ function TablaDatos({ titulo, filas }: { titulo: string; filas: Barra[] }) {
     <details className="group mt-4">
       <summary className="cursor-pointer text-[15px] text-accent hover:underline">{textos.grafica.tabla}</summary>
       <div className="mt-3 max-h-80 overflow-auto rounded-2xl bg-background">
-        <table className={`${tabla} text-[13px]`}>
+        <table className={`${tablaLibre} text-[13px]`}>
           <caption className="sr-only">{titulo}</caption>
           <thead>
             <tr className="border-b border-hairline">
@@ -206,7 +208,7 @@ export default async function Reportes({ searchParams }: PageProps<"/reportes">)
             <Icono nombre="flecha" />
           </Link>
           {!contieneHoy && rango.periodo !== "rango" && (
-            <Link href={enlaceReporte({ periodo: rango.periodo, fecha: hoy })} className={`${botonSecundario} ml-2 px-4 py-2`}>
+            <Link href={enlaceReporte({ periodo: rango.periodo, fecha: hoy })} className={`${botonSecundarioChico} ml-2`}>
               {textos.navegar.hoy}
             </Link>
           )}

@@ -8,6 +8,7 @@ import {
   ayudaCampo,
   botonPrincipal,
   campo,
+  campoLibre,
   celda,
   celdaEncabezado,
   contenedorTabla,
@@ -241,7 +242,7 @@ export function CorteCaja({ turno, puedeAbrir, puedeCerrar }: { turno: Turno | n
                             value={conteo[clave] ?? ""}
                             onChange={(e) => setConteo((c) => ({ ...c, [clave]: e.target.value.replace(/\D/g, "").slice(0, 5) }))}
                             placeholder="0"
-                            className={`${campo} cifra h-10 w-20 shrink-0 px-3 text-center text-[15px]`}
+                            className={`${campoLibre} cifra h-10 w-20 shrink-0 px-3 text-center text-[15px]`}
                           />
                           <span className="cifra ml-auto truncate text-[15px] text-muted">
                             {Number.isFinite(piezas) && piezas > 0 ? dinero(piezas * d) : ""}

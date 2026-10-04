@@ -8,7 +8,7 @@ import { Estado } from "@/app/components/estado";
 import {
   botonPrincipal,
   botonSecundario,
-  campo,
+  campoLibre,
   celda,
   celdaEncabezado,
   contenedorTabla,
@@ -113,7 +113,7 @@ export default async function Inventario({ searchParams }: PageProps<"/inventari
           </label>
           <div className="relative min-w-0 flex-1">
             <Icono nombre="buscar" className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" />
-            <input id="q" name="q" type="search" defaultValue={q} placeholder={inventario.buscar.placeholder} className={`${campo} pl-11`} />
+            <input id="q" name="q" type="search" defaultValue={q} placeholder={inventario.buscar.placeholder} className={`${campoLibre} h-11 w-full pl-11 pr-4 text-[17px]`} />
           </div>
           <button type="submit" className={botonSecundario}>
             {inventario.buscar.accion}

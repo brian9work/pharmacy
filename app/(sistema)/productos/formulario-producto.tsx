@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
-import { ayudaCampo, botonPrincipal, campo, enlace, etiquetaCampo, tarjeta } from "@/app/components/estilos";
+import {
+  ayudaCampo,
+  botonPrincipal,
+  campo,
+  campoLibre,
+  enlace,
+  etiquetaCampo,
+  tarjeta,
+} from "@/app/components/estilos";
 import { Icono } from "@/app/components/icono";
 import { sonar, useLectorCodigos } from "@/app/components/lector-codigos";
 import { dinero, porcentaje } from "@/lib/formato";
@@ -93,7 +101,7 @@ export function FormularioProducto({ producto, costo, categorias, codigos, permi
               maxLength={32}
               aria-describedby="codigo-ayuda"
               aria-invalid={Boolean(repetido)}
-              className={`${campo} pl-11 font-mono uppercase`}
+              className={`${campoLibre} h-11 w-full pl-11 pr-4 font-mono text-[17px] uppercase`}
             />
           </div>
           {repetido ? (

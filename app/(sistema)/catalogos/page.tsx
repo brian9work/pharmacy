@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EncabezadoPagina, Seccion } from "@/app/components/encabezado-pagina";
 import { Estado } from "@/app/components/estado";
-import { botonPrincipal, enlace, tarjeta } from "@/app/components/estilos";
+import { botonPrincipal, enlace, tarjeta, tarjetaLibre } from "@/app/components/estilos";
 import { obtenerCategorias, obtenerProductosInactivos, obtenerProveedoresTodos, puede } from "@/lib/consultas";
 import { catalogos as textos } from "./contenido";
 import { FormularioCategoria, FormularioProveedor } from "./formularios";
@@ -36,7 +36,7 @@ export default async function Catalogos() {
           {proveedores.length === 0 ? (
             <p className={`${tarjeta} text-[15px] text-muted`}>{textos.proveedores.vacio}</p>
           ) : (
-            <ul className={`${tarjeta} divide-y divide-hairline py-2`}>
+            <ul className={`${tarjetaLibre} divide-y divide-hairline px-6 py-2`}>
               {proveedores.map((p) => (
                 <li key={p.id} className="py-4">
                   <details className="group">
@@ -89,7 +89,7 @@ export default async function Catalogos() {
         {inactivos.length === 0 ? (
           <p className={`${tarjeta} text-[15px] text-muted`}>{textos.inactivos.vacio}</p>
         ) : (
-          <ul className={`${tarjeta} divide-y divide-hairline py-2`}>
+          <ul className={`${tarjetaLibre} divide-y divide-hairline px-6 py-2`}>
             {inactivos.map((p) => (
               <li key={p.id} className="flex items-center justify-between gap-4 py-3">
                 <span className="min-w-0">

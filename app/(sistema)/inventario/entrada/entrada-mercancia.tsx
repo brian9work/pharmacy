@@ -7,8 +7,10 @@ import {
   botonPrincipal,
   botonSecundario,
   campo,
+  campoLibre,
   etiquetaCampo,
   tarjeta,
+  tarjetaLibre,
 } from "@/app/components/estilos";
 import { Icono } from "@/app/components/icono";
 import { sonar, useLectorCodigos } from "@/app/components/lector-codigos";
@@ -164,7 +166,7 @@ export function EntradaMercancia({
 
   if (guardada) {
     return (
-      <div className={`${tarjeta} max-w-lg py-10 text-center transition duration-300 ease-out starting:opacity-0 motion-safe:starting:translate-y-2`} role="status">
+      <div className={`${tarjetaLibre} max-w-lg px-6 py-10 text-center transition duration-300 ease-out starting:opacity-0 motion-safe:starting:translate-y-2`} role="status">
         <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-success/10 text-success">
           <Icono nombre="check" className="size-7" />
         </span>
@@ -252,7 +254,7 @@ export function EntradaMercancia({
               placeholder={entrada.productos.placeholder}
               autoComplete="off"
               spellCheck={false}
-              className={`${campo} pl-11`}
+              className={`${campoLibre} h-11 w-full pl-11 pr-4 text-[17px]`}
             />
           </div>
 

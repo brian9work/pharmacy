@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { botonPrincipal, tarjeta } from "@/app/components/estilos";
+import { botonPrincipal, tarjetaLibre } from "@/app/components/estilos";
 import { obtenerCatalogoVenta, obtenerHoy, obtenerTurnoAbierto, puede } from "@/lib/consultas";
 import { venta } from "./contenido";
 import { PuntoDeVenta } from "./punto-de-venta";
@@ -15,7 +15,7 @@ export default async function Venta() {
 
   if (!turno) {
     return (
-      <div className={`${tarjeta} mx-auto mt-10 max-w-lg p-8 text-center`}>
+      <div className={`${tarjetaLibre} mx-auto mt-10 max-w-lg p-8 text-center`}>
         <h1 className="text-2xl font-semibold tracking-tight">{venta.sinCaja.titulo}</h1>
         <p className="mt-2 text-[17px] leading-7 text-muted">{venta.sinCaja.texto}</p>
         <Link href="/caja" className={`${botonPrincipal} mt-6`}>
