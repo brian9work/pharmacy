@@ -41,7 +41,8 @@ cd "$RAIZ"
 NODE="$(readlink -f "$(command -v node)")" || { echo "Falta Node.js" >&2; exit 1; }
 command -v pnpm >/dev/null || { echo "Falta pnpm (npm install -g pnpm)" >&2; exit 1; }
 LINEA_DB="$(grep -E '^DATABASE_URL=' .env 2>/dev/null | tail -1 || true)"
-if [ -z "$LINEA_DB" ]; then
+# En una actualización la conexión ya está en /etc/larafarma: el .env no hace falta.
+if [ -z "$LINEA_DB" ] && [ ! -f "$CONFIG/larafarma.env" ]; then
   echo "Falta DATABASE_URL en $RAIZ/.env (ver docs/instalacion.md)" >&2
   exit 1
 fi
