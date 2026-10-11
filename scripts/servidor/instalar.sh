@@ -21,6 +21,14 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 RAIZ="$(cd "$(dirname "$0")/../.." && pwd)"
+# El script compila el proyecto que lo contiene: suelto (por ejemplo en
+# Descargas) apuntaría a otra carpeta.
+if [ ! -f "$RAIZ/package.json" ] || [ ! -f "$RAIZ/postgres/larafarma.sql" ]; then
+  echo "Este script debe estar dentro del proyecto, en scripts/servidor/." >&2
+  echo "Descarga el proyecto completo (rama postgres) y córrelo desde su carpeta:" >&2
+  echo "  bash scripts/servidor/instalar.sh" >&2
+  exit 1
+fi
 PUERTO="${PUERTO:-3000}"
 URL="http://localhost:$PUERTO"
 DESTINO=/opt/larafarma
