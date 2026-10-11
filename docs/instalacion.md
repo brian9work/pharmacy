@@ -1,55 +1,62 @@
 # Instalación
 
-Guía para dejar el sistema funcionando desde cero: Supabase, variables, primer administrador, impresora de tickets y lector de código de barras.
+Guía para dejar el sistema funcionando desde cero: PostgreSQL, variables, primer administrador, impresora de tickets y lector de código de barras.
 
 ## 1. Requisitos
 
 - Node.js 20.9 o superior y pnpm 10.
-- Un proyecto de [Supabase](https://supabase.com).
-- Para `pnpm probar:base` (opcional): PostgreSQL 14+ instalado localmente.
+- PostgreSQL 15 o superior.
+- Para las pruebas de la base (opcional): PostgreSQL instalado en la máquina donde las corras.
 
-## 2. Supabase
+## 2. Base de datos
 
-### 2.1 Ajustes de autenticación
+Todo está en un archivo: `postgres/larafarma.sql` (tablas, reglas, funciones, reportes y datos iniciales). Se carga una sola vez en una base vacía.
 
-En el panel de tu proyecto:
+### 2.1 Cargar el archivo
 
-1. **Authentication → Sign In / Providers:** desactiva **Allow new users to sign up**. Las cuentas solo las crea el administrador desde el sistema. Si queda activo, cualquiera podría crearse una cuenta en Supabase Auth. No vería datos (sin cuenta activa en la farmacia la base no le muestra nada), pero ocuparía cuentas.
-2. **Authentication → Policies / Passwords:** longitud mínima de 10 caracteres.
-3. **Authentication → URL Configuration:** en **Site URL** pon el dominio donde publicarás el sistema.
+Cárgalo con un superusuario (en Ubuntu, el usuario `postgres`). El archivo crea extensiones y el rol `larafarma_app`, y un usuario normal no puede.
 
-### 2.2 Cargar la base
+```bash
+sudo -u postgres psql -c "create database larafarma;"
+```
 
-En **SQL Editor** ejecuta, en este orden, el contenido de cada archivo:
+```bash
+sudo -u postgres psql -d larafarma -v ON_ERROR_STOP=1 < postgres/larafarma.sql
+```
 
-| Orden | Archivo | Qué crea |
-|---|---|---|
-| 1 | `supabase/migrations/20261002120000_esquema.sql` | Tablas, reglas RLS, funciones de venta, caja, entradas y permisos |
-| 2 | `supabase/migrations/20261002120100_datos_iniciales.sql` | Negocio, Caja 1, roles y los 22 permisos |
-| 3 | `supabase/migrations/20261003120000_reportes.sql` | Reportes y exportación |
-| 4 | `supabase/migrations/20261003150000_receta_obligatoria.sql` | Casilla "Requiere receta médica" y receta obligatoria al vender |
-| — | `supabase/seed.sql` (opcional) | 16 productos y 20 lotes de ejemplo |
+Debe terminar en `COMMIT`. Va en una sola transacción: si algo falla, no se guarda nada y puedes reintentar.
 
-Si usas la CLI de Supabase, `supabase db push` aplica las migraciones en orden.
+Datos de ejemplo (opcional): `supabase/seed.sql` también funciona aquí (16 productos y 20 lotes).
+
+### 2.2 Usuario de la aplicación
+
+La aplicación entra con un usuario que **no** es dueño de las tablas, para que se apliquen las reglas de seguridad:
+
+```sql
+create role larafarma_web login password 'una-contraseña-larga' in role larafarma_app;
+```
+
+Si ya tienes un usuario (por ejemplo `larafarmauser`), solo dale el rol: `grant larafarma_app to larafarmauser;`. No le des la propiedad de las tablas ni `CREATEROLE`.
 
 ### 2.3 Primer administrador
 
-1. **Authentication → Users → Add user → Create new user.** Escribe tu correo y una contraseña larga y marca **Auto Confirm User**.
-2. Abre `supabase/primer-admin.sql`, cambia el correo y tu nombre, y ejecútalo en **SQL Editor**.
+Como superusuario:
 
-Los demás usuarios se crean desde la pantalla **Usuarios** del sistema.
+```sql
+select public.crear_primer_admin('Tu nombre', 'tu@correo.com', 'contraseña-temporal');
+```
+
+Solo funciona con la tabla de usuarios vacía. Al entrar, el sistema pide cambiar la contraseña temporal. Los demás usuarios se crean desde la pantalla **Usuarios**.
 
 ## 3. Variables de entorno
 
-Copia `.env.example` como `.env`. Los valores están en **Project Settings → API**.
+Copia `.env.example` como `.env`:
 
-| Variable | Dónde se usa | Secreta |
+| Variable | Qué es | Secreta |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Servidor y proxy | No |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Servidor y proxy; solo permite lo que dejan las reglas RLS | No |
-| `SUPABASE_SERVICE_ROLE_KEY` | Solo servidor: crear y bloquear cuentas | **Sí** |
+| `DATABASE_URL` | Conexión con el usuario de la aplicación: `postgresql://larafarma_web:CONTRASEÑA@localhost:5432/larafarma` | **Sí** |
 
-La clave de servicio se salta todas las reglas. Nunca le pongas `NEXT_PUBLIC_` ni la subas a git (`.env` ya está en `.gitignore`).
+Si la contraseña lleva caracteres como `@`, `:` o `/`, escríbelos codificados (`@` → `%40`). Nunca subas el `.env` a git (ya está en `.gitignore`).
 
 ## 4. Correr el sistema
 
@@ -77,13 +84,11 @@ pnpm build
 pnpm start
 ```
 
+Para usarlo desde las cajas de la farmacia, abre `http://IP-DEL-SERVIDOR:3000` en cada equipo. En red local funciona por http; si lo publicas en internet, ponlo detrás de HTTPS (por ejemplo nginx con certificado) y la cookie de sesión se marca como segura sola.
+
 ## 4.1 Publicar en Vercel
 
-1. Sube el repositorio a GitHub. El `.env` no se sube (está en `.gitignore`).
-2. En [Vercel](https://vercel.com): **Add New → Project** e importa el repositorio. Detecta Next.js solo.
-3. En **Settings → Environment Variables** agrega las tres variables de la tabla de arriba con los mismos nombres. `SUPABASE_SERVICE_ROLE_KEY` nunca lleva `NEXT_PUBLIC_`.
-4. Pulsa **Deploy**.
-5. En Supabase → **Authentication → URL Configuration**, pon el dominio de Vercel en **Site URL**.
+Vercel no puede llegar a un PostgreSQL que solo existe en tu red local. Para publicarlo ahí, la base debe estar en un servidor accesible por internet (con SSL) y `DATABASE_URL` debe apuntar a ella en **Settings → Environment Variables**.
 
 Los servidores de Vercel trabajan en UTC. No importa: "hoy", las horas del ticket y los reportes usan la zona de la farmacia (`negocio.zona_horaria`).
 
@@ -120,8 +125,10 @@ Lógica de la aplicación (no necesita nada instalado aparte de Node):
 pnpm probar
 ```
 
-Reglas de la base: crea un PostgreSQL temporal que imita Supabase, carga las migraciones y corre las pruebas. No toca tu proyecto de Supabase.
+Reglas de la base: crea un PostgreSQL temporal, carga `postgres/larafarma.sql` y corre las pruebas. No toca tu base.
 
 ```bash
-pnpm probar:base
+pnpm probar:postgres
 ```
+
+`pnpm probar:base` sigue probando la versión de Supabase (`supabase/migrations/`).

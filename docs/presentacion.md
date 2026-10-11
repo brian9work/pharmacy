@@ -82,9 +82,9 @@ Un sistema en el navegador que une **caja, inventario y números del negocio**:
 
 > El sistema avisa y registra, pero no sustituye al responsable sanitario ni la revisión de la normativa de COFEPRIS que aplique a tu farmacia.
 
-### Seguro y en la nube
+### Seguro y bajo tu control
 
-- **Tus datos en una base de datos en la nube** (Supabase), no en una computadora que se puede descomponer.
+- **Tus datos en tu propia base de datos PostgreSQL**, en tu servidor y con respaldos que tú controlas.
 - **Reglas de seguridad dentro de la base de datos:** aunque alguien intente saltarse la pantalla, la base no le deja ver costos, cambiar precios ni registrar ventas si no tiene permiso.
 - **El historial no se borra:** ventas, movimientos de inventario y bitácora no se pueden editar ni eliminar.
 - **Contraseñas** guardadas por el servicio de autenticación, nunca en las tablas del sistema.
@@ -151,7 +151,7 @@ No se instala nada en la computadora: se usa desde el navegador.
 
 ## Puesta en marcha
 
-1. **Configuración del servicio:** se crea tu base de datos y se publica el sistema en internet (Supabase y Vercel).
+1. **Configuración del servicio:** se instala la base de datos PostgreSQL y el sistema en tu servidor.
 2. **Primer administrador:** se crea tu cuenta.
 3. **Equipo:** se conecta el lector y se configura la impresora de tickets para imprimir directo.
 4. **Catálogo:** das de alta tus productos y proveedores (escaneando cada caja).
@@ -180,10 +180,10 @@ La guía técnica paso a paso está en [instalacion.md](instalacion.md) y el man
 No. Se usa desde Chrome en la computadora, tableta o celular.
 
 **¿Funciona sin internet?**
-Todavía no: necesita conexión para cobrar. La venta sin internet está en preparación.
+Sí, si el servidor está en la farmacia: las cajas se conectan por la red local y no necesitan internet.
 
 **¿Qué pasa si se descompone la computadora?**
-Tus datos no se pierden: están en la nube. Entras desde otra computadora y sigues.
+Si se descompone una caja, tus datos no se pierden: están en el servidor. Entras desde otra computadora y sigues. Del servidor se sacan respaldos de la base con regularidad.
 
 **¿Puedo ver mis ventas desde mi casa?**
 Sí. Entras con tu cuenta desde cualquier navegador.

@@ -1,5 +1,5 @@
 // Modelo de datos que usan las pantallas. lib/consultas.ts convierte las
-// filas de Supabase a estas formas.
+// filas de PostgreSQL a estas formas.
 //
 // Dinero siempre en centavos (entero): $35.50 = 3550.
 // Fechas de calendario como "AAAA-MM-DD"; horas ya en la zona de la farmacia.
