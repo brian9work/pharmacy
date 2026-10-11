@@ -86,7 +86,37 @@ pnpm start
 
 Para usarlo desde las cajas de la farmacia, abre `http://IP-DEL-SERVIDOR:3000` en cada equipo. En red local funciona por http; si lo publicas en internet, ponlo detrás de HTTPS (por ejemplo nginx con certificado) y la cookie de sesión se marca como segura sola.
 
-## 4.1 Publicar en Vercel
+## 4.1 Servidor de la farmacia (Ubuntu): arranque automático
+
+`scripts/servidor/instalar.sh` deja el sistema listo en la computadora que hace de servidor:
+
+- Compila el **build autónomo** (`output: "standalone"`): solo lo necesario para correr, sin el código fuente.
+- Lo instala en `/opt/larafarma`. Solo root y el usuario del servicio pueden leerlo; las cuentas del escritorio (cajeros) no.
+- Crea el servicio `larafarma` (systemd): arranca al prender la computadora, aunque nadie inicie sesión, y se reinicia solo si falla.
+- Pasa `DATABASE_URL` a `/etc/larafarma/larafarma.env`, que solo lee root.
+- Al iniciar sesión en el escritorio abre el sistema en Chrome o Chromium en modo aplicación, con impresión directa del ticket (`--kiosk-printing`). Si no hay Chrome usa Firefox, que pide confirmar cada impresión.
+
+Desde la carpeta del proyecto, con tu usuario (no con `sudo`; el script pide la contraseña cuando la necesita):
+
+```bash
+bash scripts/servidor/instalar.sh
+```
+
+Para **actualizar** después de bajar cambios (`git pull`), vuelve a correrlo. La versión anterior queda en `/opt/larafarma/app.anterior`.
+
+Comandos útiles:
+
+| Para | Comando |
+|---|---|
+| Ver si está corriendo | `systemctl status larafarma` |
+| Ver errores | `sudo journalctl -u larafarma -n 50` |
+| Reiniciar | `sudo systemctl restart larafarma` |
+| Cambiar la conexión a la base | `sudo nano /etc/larafarma/larafarma.env` y reiniciar |
+| Quitar el arranque automático | `sudo systemctl disable --now larafarma` y borrar `~/.config/autostart/larafarma.desktop` |
+
+Las demás cajas solo abren `http://IP-DEL-SERVIDOR:3000` en Chrome; no necesitan instalar nada.
+
+## 4.2 Publicar en Vercel
 
 Vercel no puede llegar a un PostgreSQL que solo existe en tu red local. Para publicarlo ahí, la base debe estar en un servidor accesible por internet (con SSL) y `DATABASE_URL` debe apuntar a ella en **Settings → Environment Variables**.
 

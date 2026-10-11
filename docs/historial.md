@@ -146,6 +146,7 @@ Pedido: cambiar la base a PostgreSQL propio, primero solo el archivo SQL y despu
 
   Sin errores en el servidor.
 - La versión de Supabase (`supabase/`) y `db/` quedan como referencia.
+- **Instalación en el servidor de la farmacia:** `scripts/servidor/instalar.sh` compila el build autónomo, lo instala en `/opt/larafarma` como servicio que arranca con la computadora y abre el navegador al iniciar sesión. Se probó el build autónomo, sin `.env`, contra un PostgreSQL temporal.
 
 ## Lo que sigue
 
