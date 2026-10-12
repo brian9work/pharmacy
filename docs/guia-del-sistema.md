@@ -241,6 +241,7 @@ Lo que sigue: [Historial → Lo que sigue](historial.md#lo-que-sigue).
 
 | Documento | Para quién |
 |---|---|
+| [Funcionalidades](funcionalidades.md) | Lista completa de lo que hace el sistema |
 | [Manual de uso](manual-de-uso.md) | Quien vende y administra la farmacia |
 | [Instalación](instalacion.md) | Quien instala o actualiza el servidor |
 | [Seguridad](seguridad.md) | Quien quiere saber qué protege el sistema y qué no |
