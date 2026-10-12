@@ -51,6 +51,7 @@ Hecho con Next.js 16, React 19, Tailwind 4 y PostgreSQL (datos, cuentas y sesion
 
 | Documento | Contenido |
 |---|---|
+| [Guía del sistema](docs/guia-del-sistema.md) | Cómo funciona todo, en un solo documento: piezas, permisos, día a día, datos, seguridad, servidor y fallas comunes |
 | [Presentación](docs/presentacion.md) | Presentación comercial: beneficios, cómo funciona y requisitos |
 | [Instalación](docs/instalacion.md) | PostgreSQL, variables, primer administrador, impresora y lector |
 | [Manual de uso](docs/manual-de-uso.md) | Cómo vender, cobrar, cerrar caja, recibir mercancía y leer reportes |
