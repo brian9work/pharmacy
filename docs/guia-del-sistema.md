@@ -248,4 +248,5 @@ Lo que sigue: [Historial → Lo que sigue](historial.md#lo-que-sigue).
 | [Base de datos](base-de-datos.md) | Quien consulta o cambia la base |
 | [Arquitectura](arquitectura.md) | Quien programa |
 | [Historial](historial.md) | Cómo se construyó y qué sigue |
-| [Presentación](presentacion.md) | Para explicar el sistema a un cliente |
+| [Presentación](presentacion.md) | Resumen comercial: beneficios y cómo funciona |
+| [Recorrido para el cliente](recorrido-para-el-cliente.md) | Pantalla por pantalla, para presentar el sistema |

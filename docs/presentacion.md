@@ -87,8 +87,8 @@ Un sistema en el navegador que une **caja, inventario y números del negocio**:
 - **Tus datos en tu propia base de datos PostgreSQL**, en tu servidor y con respaldos que tú controlas.
 - **Reglas de seguridad dentro de la base de datos:** aunque alguien intente saltarse la pantalla, la base no le deja ver costos, cambiar precios ni registrar ventas si no tiene permiso.
 - **El historial no se borra:** ventas, movimientos de inventario y bitácora no se pueden editar ni eliminar.
-- **Contraseñas** guardadas por el servicio de autenticación, nunca en las tablas del sistema.
-- **Probado:** 154 pruebas automáticas de reglas de seguridad y de la lógica del sistema.
+- **Contraseñas cifradas:** se guardan como huella (hash), nadie puede leerlas, ni siquiera quien administra el sistema.
+- **Probado:** pruebas automáticas de las reglas de seguridad y de la lógica del sistema.
 
 ---
 
@@ -143,7 +143,7 @@ El sistema avisa si un lote caduca pronto, no deja recibir lotes caducados y no 
 | Equipo | Detalle |
 |---|---|
 | Computadora o tableta | Con Google Chrome actualizado |
-| Internet | Estable. El sistema trabaja en línea |
+| Red | Red local en la farmacia. Con el servidor en la farmacia no hace falta internet para vender |
 | Lector de código de barras | USB o Bluetooth en modo teclado (el de fábrica en casi todos) |
 | Impresora de tickets | Térmica de 80 o 58 mm, instalada en la computadora |
 
@@ -159,7 +159,7 @@ No se instala nada en la computadora: se usa desde el navegador.
 6. **Equipo de trabajo:** creas las cuentas de tus empleados y eliges sus permisos.
 7. **A vender.**
 
-La guía técnica paso a paso está en [instalacion.md](instalacion.md) y el manual de uso en [manual-de-uso.md](manual-de-uso.md).
+El recorrido pantalla por pantalla está en [recorrido-para-el-cliente.md](recorrido-para-el-cliente.md), la guía técnica en [instalacion.md](instalacion.md) y el manual de uso en [manual-de-uso.md](manual-de-uso.md).
 
 ---
 
@@ -177,7 +177,7 @@ La guía técnica paso a paso está en [instalacion.md](instalacion.md) y el man
 ## Preguntas frecuentes
 
 **¿Tengo que instalar algo?**
-No. Se usa desde Chrome en la computadora, tableta o celular.
+No. Se usa desde Chrome en la computadora, tableta o celular. Solo el servidor lleva el sistema instalado.
 
 **¿Funciona sin internet?**
 Sí, si el servidor está en la farmacia: las cajas se conectan por la red local y no necesitan internet.
@@ -186,7 +186,7 @@ Sí, si el servidor está en la farmacia: las cajas se conectan por la red local
 Si se descompone una caja, tus datos no se pierden: están en el servidor. Entras desde otra computadora y sigues. Del servidor se sacan respaldos de la base con regularidad.
 
 **¿Puedo ver mis ventas desde mi casa?**
-Sí. Entras con tu cuenta desde cualquier navegador.
+No viene activado: el sistema se usa dentro de la red de la farmacia. Se puede configurar el acceso desde fuera con una conexión segura, por separado.
 
 **¿Mis empleados pueden ver mis costos o cambiar precios?**
 Solo si tú les das ese permiso. Si cambian un precio, queda registrado quién y cuándo.
