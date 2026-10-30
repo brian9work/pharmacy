@@ -102,7 +102,7 @@ Desde la carpeta del proyecto, con tu usuario (no con `sudo`; el script pide la 
 bash scripts/servidor/instalar.sh
 ```
 
-Para **actualizar** después de bajar cambios (`git pull`), vuelve a correrlo. La versión anterior queda en `/opt/larafarma/app.anterior`.
+Para **actualizar**, ve a [Actualizar](#actualizar-desde-un-zip-de-github). La versión anterior queda siempre en `/opt/larafarma/app.anterior`.
 
 Comandos útiles:
 
@@ -115,6 +115,35 @@ Comandos útiles:
 | Quitar el arranque automático | `sudo systemctl disable --now larafarma` y borrar `~/.config/autostart/larafarma.desktop` |
 
 Las demás cajas solo abren `http://IP-DEL-SERVIDOR:3000` en Chrome; no necesitan instalar nada.
+
+### Actualizar desde un zip de GitHub
+
+No hace falta tener el repositorio ni git en el servidor.
+
+1. En GitHub, con la rama `postgres` elegida: **Code → Download ZIP**. Queda en `Descargas` como `pharmacy-postgres.zip`.
+2. Corre el script (con tu usuario, sin `sudo`). `actualizar.sh` está en `scripts/servidor/`; cópialo una vez a tu carpeta personal y úsalo desde ahí:
+
+   ```bash
+   bash ~/actualizar.sh
+   ```
+
+   Usa el `.zip` más reciente de `Descargas`. Si está en otro lado: `bash ~/actualizar.sh /ruta/al/archivo.zip`.
+3. El script descomprime en una carpeta temporal, compila, instala y borra esa carpeta. La conexión a la base ya está en `/etc/larafarma`, así que no necesita `.env`. Necesita `unzip` (`sudo apt install unzip`) y internet para bajar las dependencias.
+4. Borra el `.zip` de `Descargas`.
+
+Si el nuevo build no arranca, vuelve a la versión anterior:
+
+```bash
+sudo systemctl stop larafarma && sudo rm -rf /opt/larafarma/app && sudo mv /opt/larafarma/app.anterior /opt/larafarma/app && sudo systemctl start larafarma
+```
+
+**Cambios en la base de datos.** El script actualiza la aplicación, no la base. Si una actualización necesita cambios en las tablas o funciones, vendrá con un archivo SQL aparte y se aplica como `postgres` **antes** de actualizar la aplicación:
+
+```bash
+sudo -u postgres psql -d larafarmadb -v ON_ERROR_STOP=1 < cambio.sql
+```
+
+Haz un respaldo antes: `sudo -u postgres pg_dump larafarmadb > ~/respaldo-$(date +%F).sql`.
 
 ## 4.2 Publicar en Vercel
 
