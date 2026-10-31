@@ -2,7 +2,7 @@
 
 Punto de venta e inventario de la farmacia LaraFarma: venta con lector de código de barras, ticket impreso, caja con corte, inventario por lote y caducidad, usuarios con permisos y reportes financieros.
 
-Hecho con Next.js 16, React 19, Tailwind 4 y Supabase (base de datos PostgreSQL y autenticación).
+Hecho con Next.js 16, React 19, Tailwind 4 y PostgreSQL (datos, cuentas y sesiones).
 
 ## Qué hace
 
@@ -24,8 +24,8 @@ Hecho con Next.js 16, React 19, Tailwind 4 y Supabase (base de datos PostgreSQL 
    pnpm install
    ```
 
-2. Copia `.env.example` como `.env` y pon las llaves de tu proyecto de Supabase.
-3. Carga la base en Supabase y crea el primer administrador: [docs/instalacion.md](docs/instalacion.md).
+2. Copia `.env.example` como `.env` y pon la conexión a tu PostgreSQL (`DATABASE_URL`).
+3. Carga `postgres/larafarma.sql` y crea el primer administrador: [docs/instalacion.md](docs/instalacion.md).
 4. Arranca el servidor de desarrollo:
 
    ```bash
@@ -43,15 +43,19 @@ Hecho con Next.js 16, React 19, Tailwind 4 y Supabase (base de datos PostgreSQL 
 | `pnpm start` | Servir la compilación de producción |
 | `pnpm lint` | Revisar el código |
 | `pnpm probar` | Pruebas de la lógica (validaciones, lector, FEFO, periodos, CSV) |
-| `pnpm probar:base` | Probar migraciones y reglas de seguridad en un PostgreSQL temporal |
-| `pnpm probar:todo` | Las dos anteriores |
+| `pnpm probar:postgres` | Probar `postgres/larafarma.sql` y sus reglas de seguridad en un PostgreSQL temporal |
+| `pnpm probar:base` | Lo mismo para la versión de Supabase (`supabase/migrations/`) |
+| `pnpm probar:todo` | Las tres anteriores |
 
 ## Documentación
 
 | Documento | Contenido |
 |---|---|
+| [Recorrido para el cliente](docs/recorrido-para-el-cliente.md) | El sistema pantalla por pantalla, en lenguaje sencillo, para presentarlo |
+| [Funcionalidades](docs/funcionalidades.md) | Catálogo completo de lo que hace cada pantalla, las reglas de la base y lo que falta |
+| [Guía del sistema](docs/guia-del-sistema.md) | Cómo funciona todo, en un solo documento: piezas, permisos, día a día, datos, seguridad, servidor y fallas comunes |
 | [Presentación](docs/presentacion.md) | Presentación comercial: beneficios, cómo funciona y requisitos |
-| [Instalación](docs/instalacion.md) | Supabase, variables, primer administrador, Vercel, impresora y lector |
+| [Instalación](docs/instalacion.md) | PostgreSQL, variables, primer administrador, impresora y lector |
 | [Manual de uso](docs/manual-de-uso.md) | Cómo vender, cobrar, cerrar caja, recibir mercancía y leer reportes |
 | [Arquitectura](docs/arquitectura.md) | Estructura del código y cómo viajan los datos |
 | [Base de datos](docs/base-de-datos.md) | Tablas, funciones, vistas y migraciones |

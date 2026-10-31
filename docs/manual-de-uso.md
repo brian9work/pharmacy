@@ -149,7 +149,7 @@ En **Configuración** capturas razón social, RFC, dirección, teléfono y el me
 
 ## Lo que todavía no tiene pantalla
 
-Por ahora se hacen desde el panel de Supabase (Table Editor) o están listos en la base pero sin pantalla:
+Por ahora se hacen directo en la base (con psql o pgAdmin, como dueño) o están listos en la base pero sin pantalla:
 
 - Cancelar ventas y registrar devoluciones.
 - Retiros de efectivo, mermas, ajustes de inventario y bloqueo de lotes.
