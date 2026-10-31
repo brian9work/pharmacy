@@ -112,6 +112,35 @@ select pruebas.error_con($$select crear_usuario('Yo', 'yo@farmacia.mx', 'tempora
 with x as (update usuarios set rol = 'admin' returning 1)
 select pruebas.cumple((select count(*) from x) = 0, 'empleado no se hace admin');
 
+\echo '--- Subir datos a la nube (lo que arma el servidor local)'
+select pruebas.error_con($$select iniciar_sincronizacion()$$, 'No tienes permiso', 'empleado inicia una subida');
+select pruebas.error_con($$select datos_para_subir('epoch')$$, 'No tienes permiso', 'empleado pide los datos para subir');
+do $$ begin perform pruebas.entrar('ana@farmacia.mx', 'nueva-ana-segura'); end $$;
+select pruebas.cumple((iniciar_sincronizacion() ->> 'desde')::timestamptz = 'epoch', 'la primera subida empieza desde el principio');
+select pruebas.error_con($$select iniciar_sincronizacion()$$, 'subida en curso', 'dos subidas a la vez');
+select pruebas.cumple(jsonb_array_length(datos_para_subir('epoch') -> 'ventas') = 1, 'trae la venta');
+select pruebas.cumple(jsonb_array_length(datos_para_subir('epoch') -> 'recetas') = 1 and jsonb_array_length(datos_para_subir('epoch') -> 'venta_partidas') = 2, 'con su receta y sus partidas');
+select pruebas.cumple((select bool_and(p ? 'costo') from jsonb_array_elements(datos_para_subir('epoch') -> 'productos') p), 'los productos van con su costo');
+select pruebas.cumple(not (datos_para_subir('epoch') -> 'usuarios' -> 0 ? 'hash_contrasena'), 'de las cuentas solo van id y correo');
+select pruebas.cumple(jsonb_array_length(datos_para_subir('epoch') -> 'turnos') = 1 and (datos_para_subir('epoch') -> 'turnos' -> 0 ->> 'caja') = 'Caja 1', 'el turno va con el nombre de su caja');
+select pruebas.cumple(jsonb_array_length(datos_para_subir('epoch') -> 'movimientos_inventario') >= 3, 'con los movimientos de inventario');
+select pruebas.cumple(jsonb_array_length(datos_para_subir(now() + interval '1 hour') -> 'ventas') = 0
+  and jsonb_array_length(datos_para_subir(now() + interval '1 hour') -> 'productos') = 3, 'ya subido: no hay ventas nuevas, pero el catálogo va completo');
+do $$ begin perform terminar_sincronizacion((select max(id) from public.sincronizaciones), true, '{"ventas_nuevas": 1, "completa": false}', null); end $$;
+select iniciar_sincronizacion() is not null as listo \gset
+select pruebas.cumple((select desde = 'epoch' from public.sincronizaciones order by id desc limit 1), 'una subida que dejó algo pendiente no mueve el punto de partida');
+do $$ begin perform terminar_sincronizacion((select max(id) from public.sincronizaciones), true, '{"ventas_nuevas": 1, "completa": true}', null); end $$;
+select pruebas.cumple((select ok from public.sincronizaciones order by id desc limit 1), 'la subida queda registrada como buena');
+select pruebas.cumple((iniciar_sincronizacion() ->> 'desde')::timestamptz > now() - interval '15 minutes', 'la siguiente empieza donde terminó la anterior (con colchón)');
+do $$ begin perform terminar_sincronizacion((select max(id) from public.sincronizaciones), false, null, 'sin internet'); end $$;
+select iniciar_sincronizacion() is not null as listo \gset
+select pruebas.cumple((select desde from public.sincronizaciones order by id desc limit 1) = (select desde from public.sincronizaciones order by id desc offset 1 limit 1),
+  'una subida fallida no mueve el punto de partida');
+select pruebas.error_con($$insert into public.sincronizaciones (desde) values (now())$$, 'permission denied', 'la app no escribe en sincronizaciones directo');
+select pruebas.cumple((select count(*) from public.sincronizaciones) = 4, 'el administrador ve el historial de subidas');
+do $$ begin perform pruebas.entrar('carlos@farmacia.mx', 'temporal-carlos'); end $$;
+select pruebas.cumple((select count(*) from public.sincronizaciones) = 0, 'el empleado no ve el historial de subidas');
+
 \echo '--- Bloqueo'
 do $$ begin perform pruebas.entrar('ana@farmacia.mx', 'nueva-ana-segura'); end $$;
 with x as (update usuarios set activo = false where correo = 'carlos@farmacia.mx' returning 1)

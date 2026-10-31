@@ -14,6 +14,7 @@ Hecho con Next.js 16, React 19, Tailwind 4 y PostgreSQL (datos, cuentas y sesion
 - **Inventario:** existencias, alertas de stock bajo y por caducar, y kardex (historial de movimientos) por producto.
 - **Catálogo:** alta y edición de productos (con el lector para el código de barras), categorías y proveedores.
 - **Usuarios y permisos:** administrador y empleado. Tú decides qué puede hacer el empleado.
+- **Subir datos a la nube:** un botón en Configuración manda a Supabase lo que aún no está allá (ventas, entradas, productos, existencias) para que el administrador lo consulte desde cualquier lugar.
 - **Reportes:** ventas, utilidad, márgenes, formas de pago, cajeros, categorías, productos y horas pico, por día, semana, mes, año o rango. Exportación a CSV.
 
 ## Inicio rápido
@@ -44,8 +45,9 @@ Hecho con Next.js 16, React 19, Tailwind 4 y PostgreSQL (datos, cuentas y sesion
 | `pnpm lint` | Revisar el código |
 | `pnpm probar` | Pruebas de la lógica (validaciones, lector, FEFO, periodos, CSV) |
 | `pnpm probar:postgres` | Probar `postgres/larafarma.sql` y sus reglas de seguridad en un PostgreSQL temporal |
+| `pnpm probar:subida` | Probar "Subir datos" de punta a punta (base local, base tipo Supabase y API de mentira) |
 | `pnpm probar:base` | Lo mismo para la versión de Supabase (`supabase/migrations/`) |
-| `pnpm probar:todo` | Las tres anteriores |
+| `pnpm probar:todo` | Todas las anteriores |
 
 ## Documentación
 

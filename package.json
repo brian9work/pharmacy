@@ -9,8 +9,9 @@
     "lint": "eslint",
     "probar:base": "bash scripts/probar-base.sh",
     "probar:postgres": "bash scripts/probar-postgres.sh",
+    "probar:subida": "bash scripts/probar-subida.sh",
     "probar": "node --import ./scripts/pruebas/registrar.mjs --test \"lib/**/*.test.ts\"",
-    "probar:todo": "pnpm probar && pnpm probar:postgres && pnpm probar:base"
+    "probar:todo": "pnpm probar && pnpm probar:postgres && pnpm probar:subida && pnpm probar:base"
   },
   "dependencies": {
     "next": "16.3.8",

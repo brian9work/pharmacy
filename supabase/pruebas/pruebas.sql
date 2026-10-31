@@ -308,3 +308,122 @@ select pruebas.error_con($$update public.productos set requiere_receta = false w
   'No tienes permiso para editar productos', 'quitar la receta con permiso de precios pero no de edición');
 select pruebas.cumple((select count(*) = 1 from public.productos where nombre = 'Ibuprofeno 400 mg' and requiere_receta), 'el empleado ve la casilla de receta');
 reset role;
+
+\echo '--- Subir datos desde el servidor local (solo la clave de servicio)'
+select pruebas.como('ana@farmacia.mx');
+set role authenticated;
+select pruebas.error_con($$select public.subir_catalogo('{}')$$, 'permission denied', 'un administrador con sesión no puede subir catálogo');
+select pruebas.error_con($$select public.subir_operacion('{}')$$, 'permission denied', 'ni subir operación');
+select pruebas.error_con($$select public.mapa_usuarios('["ana@farmacia.mx"]')$$, 'permission denied', 'ni consultar el mapa de cuentas');
+reset role;
+set role anon;
+select pruebas.error_con($$select public.subir_catalogo('{}')$$, 'permission denied', 'sin sesión tampoco');
+reset role;
+
+grant usage on schema pruebas to service_role;
+grant execute on all functions in schema pruebas to service_role;
+set role service_role;
+select pruebas.cumple((public.mapa_usuarios('["ANA@farmacia.mx", "nadie@farmacia.mx"]') ? 'ana@farmacia.mx')
+  and not (public.mapa_usuarios('["ANA@farmacia.mx", "nadie@farmacia.mx"]') ? 'nadie@farmacia.mx'), 'el mapa trae solo las cuentas que existen');
+
+-- Catálogo nuevo
+select gen_random_uuid() as prov, gen_random_uuid() as prod, gen_random_uuid() as lote \gset
+select public.subir_catalogo(jsonb_build_object(
+  'categorias', jsonb_build_array(jsonb_build_object('id', 901, 'nombre', 'Categoría subida')),
+  'proveedores', jsonb_build_array(jsonb_build_object('id', :'prov', 'nombre', 'Proveedor subido', 'rfc', '', 'telefono', '', 'correo', '', 'activo', true))
+)) as r1 \gset
+select pruebas.cumple((:'r1'::jsonb -> 'categorias' ->> '901')::int = (select id from public.categorias where nombre = 'Categoría subida'), 'categoría nueva con su mapa de ids');
+select (:'r1'::jsonb -> 'categorias' ->> '901') as cat \gset
+select public.subir_catalogo(jsonb_build_object('productos', jsonb_build_array(jsonb_build_object(
+  'id', :'prod', 'codigo_barras', '7509990000017', 'nombre', 'Producto subido', 'sustancia', '', 'presentacion', '', 'laboratorio', '',
+  'categoria_id', :'cat'::int, 'clasificacion', 'antibiotico', 'requiere_receta', true, 'precio', 5000, 'costo', 2500, 'iva', 0,
+  'stock_minimo', 3, 'ubicacion', '', 'refrigerado', false, 'activo', true)))) as r2 \gset
+select pruebas.cumple((select requiere_receta and costo = 2500 from public.productos where id = :'prod'), 'producto nuevo con costo y receta');
+select public.subir_catalogo(jsonb_build_object('lotes', jsonb_build_array(jsonb_build_object(
+  'id', :'lote', 'producto_id', :'prod', 'numero', 'S1', 'caducidad', '2030-01-01', 'cantidad', 7, 'costo', 2500, 'estado', 'disponible')))) as r3 \gset
+select pruebas.cumple((select cantidad = 7 from public.lotes where id = :'lote'), 'el lote llega con su existencia actual');
+select pruebas.cumple((select count(*) = 0 from public.movimientos_inventario where lote_id = :'lote'), 'sin inventar movimientos');
+
+-- Subir lo mismo otra vez no repite nada
+select public.subir_catalogo(jsonb_build_object('lotes', jsonb_build_array(jsonb_build_object(
+  'id', :'lote', 'producto_id', :'prod', 'numero', 'S1', 'caducidad', '2030-01-01', 'cantidad', 7, 'costo', 2500, 'estado', 'disponible')))) as r4 \gset
+select pruebas.cumple((:'r4'::jsonb -> 'conteo' ->> 'lotes_nuevos')::int = 0 and (:'r4'::jsonb -> 'conteo' ->> 'lotes_actualizados')::int = 0, 'subir de nuevo no cambia nada');
+-- La existencia que manda es la local
+select public.subir_catalogo(jsonb_build_object('lotes', jsonb_build_array(jsonb_build_object(
+  'id', :'lote', 'producto_id', :'prod', 'numero', 'S1', 'caducidad', '2030-01-01', 'cantidad', 4, 'costo', 2500, 'estado', 'disponible')))) as r5 \gset
+select pruebas.cumple((select cantidad = 4 from public.lotes where id = :'lote'), 'la existencia local reemplaza a la de la nube');
+
+-- El mismo producto con otro id se reconoce por su código de barras
+select gen_random_uuid() as otro \gset
+select public.subir_catalogo(jsonb_build_object('productos', jsonb_build_array(jsonb_build_object(
+  'id', :'otro', 'codigo_barras', '7509990000017', 'nombre', 'Producto subido', 'sustancia', '', 'presentacion', '', 'laboratorio', '',
+  'categoria_id', :'cat'::int, 'clasificacion', 'antibiotico', 'requiere_receta', true, 'precio', 5500, 'costo', 2500, 'iva', 0,
+  'stock_minimo', 3, 'ubicacion', '', 'refrigerado', false, 'activo', true)))) as r6 \gset
+select pruebas.cumple((:'r6'::jsonb -> 'productos' ->> :'otro')::uuid = :'prod'::uuid, 'mismo código de barras: se reconoce el producto');
+select pruebas.cumple((select precio = 5500 from public.productos where id = :'prod') and (select count(*) = 1 from public.productos where codigo_barras = '7509990000017'), 'se actualiza el precio sin duplicar');
+
+-- Operación: turno cerrado y una venta
+select gen_random_uuid() as turno, gen_random_uuid() as venta, gen_random_uuid() as receta from (select 1) x \gset
+select id as ana from public.usuarios where correo = 'ana@farmacia.mx' \gset
+select public.subir_operacion(jsonb_build_object(
+  'turnos', jsonb_build_array(jsonb_build_object('id', :'turno', 'caja', 'Caja 1', 'usuario_id', :'ana', 'abierto_en', '2026-10-01T09:00:00Z',
+    'fondo_inicial', 50000, 'cerrado_en', '2026-10-01T18:00:00Z', 'efectivo_esperado', 60000, 'efectivo_contado', 60000, 'conteo', null)),
+  'ventas', jsonb_build_array(jsonb_build_object('id', :'venta', 'folio', 9001, 'turno_id', :'turno', 'usuario_id', :'ana',
+    'creado_en', '2026-10-01T12:00:00Z', 'subtotal', 10000, 'iva', 0, 'total', 10000, 'estado', 'pagada')),
+  'recetas', jsonb_build_array(jsonb_build_object('id', :'receta', 'venta_id', :'venta', 'tipo', 'antibiotico', 'medico', 'Dra. Subida',
+    'cedula', 'AB123', 'fecha_receta', '2026-09-30', 'folio_receta', 'R9', 'retenida', false, 'registrada_por', :'ana', 'creado_en', '2026-10-01T12:00:00Z')),
+  'venta_partidas', jsonb_build_array(jsonb_build_object('venta_id', :'venta', 'producto_id', :'prod', 'lote_id', :'lote', 'cantidad', 2,
+    'precio', 5000, 'iva', 0, 'descuento', 0, 'importe', 10000, 'receta_id', :'receta')),
+  'venta_pagos', jsonb_build_array(jsonb_build_object('venta_id', :'venta', 'metodo', 'efectivo', 'monto', 10000, 'recibido', 10000, 'referencia', '')),
+  'movimientos_caja', jsonb_build_array(jsonb_build_object('origen_id', 1, 'turno_id', :'turno', 'tipo', 'venta', 'metodo', 'efectivo', 'monto', 10000,
+    'concepto', 'Venta V-009001', 'venta_id', :'venta', 'usuario_id', :'ana', 'creado_en', '2026-10-01T12:00:00Z')),
+  'movimientos_inventario', jsonb_build_array(jsonb_build_object('origen_id', 1, 'lote_id', :'lote', 'producto_id', :'prod', 'tipo', 'venta', 'cantidad', -2,
+    'usuario_id', :'ana', 'referencia', 'V-009001', 'venta_id', :'venta', 'creado_en', '2026-10-01T12:00:00Z'))
+)) as o1 \gset
+select pruebas.cumple((:'o1'::jsonb ->> 'ventas_nuevas')::int = 1 and (:'o1'::jsonb ->> 'turnos_nuevos')::int = 1, 'turno cerrado y venta histórica entran');
+select pruebas.cumple((select folio = 9001 and creado_en = '2026-10-01T12:00:00Z' from public.ventas where id = :'venta'), 'la venta conserva su folio y su fecha');
+select pruebas.cumple((select cantidad = 4 from public.lotes where id = :'lote'), 'la venta histórica no vuelve a descontar del lote');
+select pruebas.cumple((select count(*) = 1 from public.venta_partidas where venta_id = :'venta') and (select count(*) = 1 from public.recetas where venta_id = :'venta'), 'partidas y receta ligadas');
+select pruebas.cumple((select last_value >= 9001 from public.ventas_folio_seq), 'el siguiente folio de la nube sigue después del 9001');
+select pruebas.cumple(coalesce(current_setting('farmacia.importando', true), '') = '', 'el modo importación no se queda activo');
+
+-- Subir lo mismo: no se duplica
+select public.subir_operacion(jsonb_build_object(
+  'turnos', jsonb_build_array(jsonb_build_object('id', :'turno', 'caja', 'Caja 1', 'usuario_id', :'ana', 'abierto_en', '2026-10-01T09:00:00Z',
+    'fondo_inicial', 50000, 'cerrado_en', '2026-10-01T18:00:00Z', 'efectivo_esperado', 60000, 'efectivo_contado', 60000, 'conteo', null)),
+  'ventas', jsonb_build_array(jsonb_build_object('id', :'venta', 'folio', 9001, 'turno_id', :'turno', 'usuario_id', :'ana',
+    'creado_en', '2026-10-01T12:00:00Z', 'subtotal', 10000, 'iva', 0, 'total', 10000, 'estado', 'pagada')),
+  'venta_partidas', jsonb_build_array(jsonb_build_object('venta_id', :'venta', 'producto_id', :'prod', 'lote_id', :'lote', 'cantidad', 2,
+    'precio', 5000, 'iva', 0, 'descuento', 0, 'importe', 10000, 'receta_id', null)))) as o2 \gset
+select pruebas.cumple((:'o2'::jsonb ->> 'ventas_ya_estaban')::int = 1 and (:'o2'::jsonb ->> 'ventas_nuevas')::int = 0, 'la venta repetida se reconoce');
+select pruebas.cumple((select count(*) = 1 from public.venta_partidas where venta_id = :'venta'), 'sus detalles no se repiten');
+
+-- Folio ocupado por otra venta y venta sin turno
+select gen_random_uuid() as v2, gen_random_uuid() as v3 \gset
+select public.subir_operacion(jsonb_build_object('ventas', jsonb_build_array(
+  jsonb_build_object('id', :'v2', 'folio', 9001, 'turno_id', :'turno', 'usuario_id', :'ana', 'creado_en', '2026-10-02T12:00:00Z',
+    'subtotal', 100, 'iva', 0, 'total', 100, 'estado', 'pagada'),
+  jsonb_build_object('id', :'v3', 'folio', 9002, 'turno_id', gen_random_uuid(), 'usuario_id', :'ana', 'creado_en', '2026-10-02T12:00:00Z',
+    'subtotal', 100, 'iva', 0, 'total', 100, 'estado', 'pagada')))) as o3 \gset
+select pruebas.cumple((:'o3'::jsonb ->> 'ventas_folio_repetido')::int = 1 and (:'o3'::jsonb ->> 'ventas_sin_turno')::int = 1, 'folio repetido y venta sin turno se reportan, no se mezclan');
+select pruebas.cumple((select count(*) = 0 from public.ventas where id in (:'v2', :'v3')), 'y no se guardan');
+
+-- Movimientos sueltos: entran una sola vez
+select public.subir_operacion(jsonb_build_object('movimientos_inventario', jsonb_build_array(jsonb_build_object(
+  'origen_id', 77, 'lote_id', :'lote', 'producto_id', :'prod', 'tipo', 'inventario_inicial', 'cantidad', 4, 'usuario_id', null,
+  'referencia', 'migración', 'creado_en', '2026-09-01T10:00:00Z')))) as o4 \gset
+select public.subir_operacion(jsonb_build_object('movimientos_inventario', jsonb_build_array(jsonb_build_object(
+  'origen_id', 77, 'lote_id', :'lote', 'producto_id', :'prod', 'tipo', 'inventario_inicial', 'cantidad', 4, 'usuario_id', null,
+  'referencia', 'migración', 'creado_en', '2026-09-01T10:00:00Z')))) as o5 \gset
+select pruebas.cumple((select count(*) = 1 from public.movimientos_inventario where lote_id = :'lote' and tipo = 'inventario_inicial'), 'un movimiento suelto no se repite al subir otra vez');
+select pruebas.cumple((select cantidad = 4 from public.lotes where id = :'lote'), 'ni cambia el saldo del lote');
+reset role;
+
+-- Las reglas normales siguen vivas después de importar.
+select pruebas.como('ana@farmacia.mx');
+set role authenticated;
+select pruebas.error($$insert into public.ventas (turno_id, usuario_id, subtotal, iva, total) select id, usuario_id, 1, 0, 1 from public.turnos_caja limit 1$$,
+  'insertar una venta directo sigue bloqueado');
+reset role;
+select pruebas.error_con($$insert into public.ventas (turno_id, usuario_id, subtotal, iva, total) select id, usuario_id, 1, 0, 1 from public.turnos_caja where cerrado_en is not null limit 1$$,
+  'turno de caja abierto', 'una venta nueva sobre un turno cerrado sigue bloqueada');

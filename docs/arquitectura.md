@@ -43,6 +43,8 @@ lib/
   validacion-producto.ts   lectura y validación del formulario de producto
   validacion-receta.ts     validación de la receta al vender
   detector-codigos.ts      distingue el lector de código de barras del tecleo
+  subir-datos.ts           qué se sube a la nube, en qué orden y con qué ids
+  nube-http.ts / nube.ts   conexión con Supabase (clave de servicio, solo servidor)
   csv.ts                   celdas CSV seguras
   periodos.ts              periodos de los reportes
   *.test.ts                pruebas de lo anterior (pnpm probar)
@@ -61,7 +63,8 @@ app/
     productos/nuevo/  productos/[id]/editar/  catalogos/
     reportes/  reportes/exportar/  usuarios/  usuarios/nuevo/  usuarios/permisos/  configuracion/
 postgres/
-  larafarma.sql            base completa: esquema, cuentas, sesiones, reportes y datos iniciales
+  larafarma.sql            base completa: esquema, cuentas, sesiones, reportes, subida a la nube y datos iniciales
+  actualizaciones/         cambios para una base ya instalada (uno por fecha)
   pruebas/                 pruebas de reglas (pnpm probar:postgres)
 supabase/                  versión para Supabase (referencia); seed.sql sirve de datos de ejemplo
 scripts/                   probar-postgres.sh, probar-base.sh y el cargador de pruebas de Node
@@ -75,6 +78,18 @@ Cada pantalla tiene:
 - `contenido.ts`: todos los textos. Para cambiar un texto no se toca el JSX.
 - `acciones.ts`: Server Actions, si la pantalla escribe.
 - Un componente de cliente pequeño, solo si hace falta estado o eventos (carrito, corte, formularios).
+
+## Subir datos a la nube
+
+```mermaid
+flowchart LR
+  B[Botón Subir datos] -->|Server Action| A[subirDatos]
+  A -->|datos_para_subir| L[(PostgreSQL local)]
+  A -->|"lib/subir-datos.ts: ids, orden, lotes"| N[lib/nube-http.ts]
+  N -->|"HTTPS · clave de servicio"| S[(Supabase: subir_catalogo, subir_operacion)]
+```
+
+`lib/subir-datos.ts` decide qué se manda y en qué orden (cuentas por correo → catálogo → entradas y turnos → ventas de 100 en 100) y traduce los ids locales a los de la nube. No sabe de red ni de base: recibe un `Local` y una `Nube`, por eso se prueba entero con `pnpm probar` y de punta a punta con `pnpm probar:subida`. `lib/nube-http.ts` solo habla con la API de Supabase con `fetch` (sin dependencias nuevas).
 
 ## Decisiones
 
@@ -120,6 +135,7 @@ Lo usan **Vender**, **Recibir mercancía** y el formulario de producto (llena el
 |---|---|---|
 | `pnpm probar` | Validación de productos y recetas, lector, FEFO, alertas, IVA, periodos, CSV y formatos | `node:test` con TypeScript nativo de Node 24; `scripts/pruebas/` resuelve los imports `@/` |
 | `pnpm probar:postgres` | `postgres/larafarma.sql`: sesiones, contraseñas, reglas RLS, venta, caja y reportes | PostgreSQL temporal (`postgres/pruebas/`) |
-| `pnpm probar:base` | La versión de Supabase | PostgreSQL temporal que imita Supabase (`supabase/pruebas/`) |
+| `pnpm probar:subida` | "Subir datos" de punta a punta: una base local, una que imita Supabase y una API de mentira; ventas reales de local a nube y comparación de lo subido | PostgreSQL temporal con dos bases (`scripts/pruebas/subida-e2e.ts`) |
+| `pnpm probar:base` | La versión de Supabase (incluye las funciones que reciben los datos) | PostgreSQL temporal que imita Supabase (`supabase/pruebas/`) |
 
 No hay pruebas automáticas de punta a punta en el navegador; se hicieron a mano (ver [historial](historial.md)).

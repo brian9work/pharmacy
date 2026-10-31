@@ -148,6 +148,19 @@ Pedido: cambiar la base a PostgreSQL propio, primero solo el archivo SQL y despu
 - La versión de Supabase (`supabase/`) y `db/` quedan como referencia.
 - **Instalación en el servidor de la farmacia:** `scripts/servidor/instalar.sh` compila el build autónomo, lo instala en `/opt/larafarma` como servicio que arranca con la computadora y abre el navegador al iniciar sesión. Se probó el build autónomo, sin `.env`, contra un PostgreSQL temporal.
 
+## 10. Subir datos a la nube (31 de octubre, rama `postgres`)
+
+Pedido: el sistema corre en PostgreSQL local (Docker o servidor de la farmacia); un botón en Configuración sube a Supabase lo que aún no está allá; la nube solo se usa para ver ventas, reportes e inventario.
+
+- **Decisiones con el usuario:** se sube catálogo y operación (no usuarios); las cuentas se emparejan por correo; las ventas solo se hacen en local, así que los folios locales se conservan en la nube y no chocan.
+- **En la nube:** migración `20261031120000_subir_datos.sql` con tres funciones que solo ejecuta la clave de servicio. Importa sin las reglas de "venta en vivo" (turno abierto, saldo del lote) solo dentro de sus propias transacciones; conserva folio y fecha; reconoce productos por código de barras, lotes por número y caducidad; no duplica.
+- **En local:** tabla `sincronizaciones` y tres funciones (`postgres/actualizaciones/20261031_subir_datos.sql`, también en `larafarma.sql`). El punto de partida es el inicio de la última subida **completa**, con 10 minutos de colchón.
+- **En la aplicación:** `lib/subir-datos.ts` (qué se sube y con qué ids), `lib/nube-http.ts` (API de Supabase con `fetch`), sección **Subir datos** en Configuración.
+- **Un hueco que se corrigió antes de entregar:** si una venta se omitía porque su cajero aún no tenía cuenta en la nube, la siguiente subida avanzaba el punto de partida y esa venta no se volvía a mandar. Ahora una subida con algo pendiente no mueve el punto de partida.
+- **Pruebas:** 18 nuevas en la base local (60 en total), 27 en las de Supabase (127 en total), 7 de la lógica (61 en total) y `pnpm probar:subida` de punta a punta. En el navegador: subida, segunda subida sin novedades, nube apagada y llaves sin configurar.
+- **Cuidado:** con el `.env` real en una computadora de desarrollo, el botón sube a tu Supabase real.
+- Fuera de esta versión: cancelaciones y devoluciones (todavía no tienen pantalla) no se suben.
+
 ## Lo que sigue
 
 En orden sugerido:

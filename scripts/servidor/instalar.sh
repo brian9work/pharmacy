@@ -79,9 +79,11 @@ sudo chmod 755 "$DESTINO"
 
 # Variables: solo root las lee (systemd se las pasa al servicio).
 if [ ! -f "$CONFIG/larafarma.env" ]; then
-  printf '%s\nNODE_ENV=production\nPORT=%s\nHOSTNAME=0.0.0.0\n' "$LINEA_DB" "$PUERTO" | sudo tee "$CONFIG/larafarma.env" >/dev/null
+  # Si el .env trae las llaves de Supabase ("Subir datos"), también se guardan aquí.
+  LINEAS_NUBE="$(grep -E '^(SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY)=' .env 2>/dev/null || true)"
+  printf '%s\n%s\nNODE_ENV=production\nPORT=%s\nHOSTNAME=0.0.0.0\n' "$LINEA_DB" "$LINEAS_NUBE" "$PUERTO" | sed '/^$/d' | sudo tee "$CONFIG/larafarma.env" >/dev/null
 else
-  echo "  $CONFIG/larafarma.env ya existe: no se cambia."
+  echo "  $CONFIG/larafarma.env ya existe: no se cambia (para \"Subir datos\" agrega SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY ahí; ver docs/instalacion.md)."
 fi
 sudo chown root:root "$CONFIG/larafarma.env"
 sudo chmod 600 "$CONFIG/larafarma.env"

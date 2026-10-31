@@ -57,6 +57,12 @@ La aplicación no puede leer `hash_contrasena` (privilegios de columna) ni inser
 | `venta_pagos` | Forma de pago, monto, recibido |
 | `recetas` | Receta de una venta: tipo (simple, antibiótico, controlado), médico, cédula, fecha, folio, si se retuvo y quién la capturó. Cada partida que la pedía guarda `receta_id` |
 
+### Subir datos a la nube
+
+| Tabla | Para qué |
+|---|---|
+| `sincronizaciones` | Historial de subidas: cuándo empezó y terminó, si salió bien, si quedó algo pendiente (`completa`) y el resumen. Solo la ve quien tiene `configuracion.editar` |
+
 ## Funciones (RPC)
 
 Son la única forma de escribir ventas, caja, entradas y permisos. Todas revisan el permiso de quien llama.
@@ -78,7 +84,17 @@ Son la única forma de escribir ventas, caja, entradas y permisos. Todas revisan
 | `reporte_ventas(desde, hasta)` | `reportes.ver` | Reporte del periodo y del periodo anterior |
 | `exportar_ventas(desde, hasta)` | `reportes.ver` | Una fila por ticket para CSV |
 
-Apoyo: `usuario_actual()` (dueño del token puesto en `larafarma.token`), `tiene_permiso(clave)`, `usuario_activo()`, `hoy_local()`, `zona_horaria()`. `resumen_ventas()` es interna: nadie la puede llamar directo.
+Subir datos (permiso `configuracion.editar`):
+
+| Función | Qué hace |
+|---|---|
+| `iniciar_sincronizacion()` | Empieza una subida (una a la vez) y dice desde cuándo mandar: desde el inicio de la última subida completa, con 10 minutos de colchón |
+| `datos_para_subir(desde)` | Arma lo que se sube: catálogo y lotes completos, y entradas, cortes y ventas nuevos desde `desde`. Incluye costos |
+| `terminar_sincronizacion(id, ok, resumen, error)` | Anota cómo salió. Solo una subida completa mueve el punto de partida |
+
+La nube (Supabase) tiene las funciones que reciben: `mapa_usuarios`, `subir_catalogo` y `subir_operacion` (`supabase/migrations/20261031120000_subir_datos.sql`), que solo ejecuta la clave de servicio.
+
+Apoyo: `usuario_actual() (dueño del token puesto en `larafarma.token`), `tiene_permiso(clave)`, `usuario_activo()`, `hoy_local()`, `zona_horaria()`. `resumen_ventas()` es interna: nadie la puede llamar directo.
 
 ## Vistas
 
@@ -106,7 +122,7 @@ Todas con `security_invoker`: respetan las reglas de quien consulta.
 
 ## Cambiar el esquema
 
-1. Para una base nueva, cambia `postgres/larafarma.sql`. Para una base que ya tiene datos, escribe además un archivo con solo el cambio (`alter table…`, `create or replace function…`) y ejecútalo como dueño de la base.
+1. Para una base nueva, cambia `postgres/larafarma.sql`. Para una base que ya tiene datos, escribe además un archivo con solo el cambio (`alter table…`, `create or replace function…`) en `postgres/actualizaciones/` (por ejemplo `20261031_subir_datos.sql`) y ejecútalo como dueño de la base, con respaldo antes.
 2. En cada tabla nueva: activa RLS, escribe sus reglas `to larafarma_app` y revisa qué privilegios necesita la aplicación.
 3. En cada función nueva:
    - Usa `security definer` solo si de verdad necesita saltarse RLS, y entonces revisa el permiso dentro.

@@ -9,6 +9,7 @@ import { consultar, consultarFila, tokenActual, transaccion } from "@/lib/db/ses
 import { mensajeDeError, type ErrorBase } from "@/lib/errores";
 import { enZona, fechaCorta, horaEn, hoyEn, momentoEn } from "@/lib/formato";
 import { alertasDe, lotesVendibles, ordenarFEFO, sumarPiezas, type Alerta } from "@/lib/inventario";
+import type { ResumenSubida } from "@/lib/subir-datos";
 import type {
   Categoria,
   Clasificacion,
@@ -576,4 +577,40 @@ export async function obtenerPermisosConfigurables(): Promise<{ catalogo: Permis
       .map((f) => ({ clave: f.clave, modulo: f.modulo, nombre: f.nombre, descripcion: f.descripcion, soloAdmin: f.solo_admin })),
     empleado: asignados.map((f) => f.permiso),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Subir datos a la nube
+// ---------------------------------------------------------------------------
+
+export interface EstadoSubida {
+  /** false si la base local todavía no tiene la actualización que lo permite. */
+  disponible: boolean;
+  /** Fecha y hora de la última subida que salió bien. */
+  ultimaBuena: string | null;
+  /** El último intento, salga como salga. */
+  ultimo: { cuando: string; ok: boolean | null; error: string | null; resumen: ResumenSubida | null } | null;
+}
+
+export async function obtenerEstadoSubida(): Promise<EstadoSubida> {
+  const zona = await obtenerZona();
+  try {
+    const [ultimo, buena] = await Promise.all([
+      consultarFila<{ iniciada_en: string; terminada_en: string | null; ok: boolean | null; error: string | null; resumen: ResumenSubida | null }>(
+        "select iniciada_en, terminada_en, ok, error, resumen from sincronizaciones order by id desc limit 1",
+      ),
+      consultarFila<{ terminada_en: string }>("select terminada_en from sincronizaciones where ok order by id desc limit 1"),
+    ]);
+    return {
+      disponible: true,
+      ultimaBuena: buena ? momentoEn(buena.terminada_en, zona) : null,
+      ultimo: ultimo
+        ? { cuando: momentoEn(ultimo.terminada_en ?? ultimo.iniciada_en, zona), ok: ultimo.ok, error: ultimo.error, resumen: ultimo.resumen }
+        : null,
+    };
+  } catch (error) {
+    // 42P01: la tabla no existe (falta aplicar postgres/actualizaciones/20261031_subir_datos.sql).
+    if ((error as { code?: string }).code === "42P01") return { disponible: false, ultimaBuena: null, ultimo: null };
+    throw new Error(mensajeDeError(error as ErrorBase));
+  }
 }

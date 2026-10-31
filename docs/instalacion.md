@@ -145,7 +145,54 @@ sudo -u postgres psql -d larafarmadb -v ON_ERROR_STOP=1 < cambio.sql
 
 Haz un respaldo antes: `sudo -u postgres pg_dump larafarmadb > ~/respaldo-$(date +%F).sql`.
 
-## 4.2 Publicar en Vercel
+## 4.2 Subir datos a la nube (Supabase)
+
+La farmacia vende en el servidor local. En la nube, el administrador solo **consulta** ventas, reportes e inventario. El botón **Configuración → Subir datos** manda a Supabase lo que aún no está allá. Se puede pulsar las veces que quieras (por ejemplo al cerrar el día): lo que ya subió no se duplica.
+
+**Qué sube:** categorías, proveedores, productos (con costos), lotes y su existencia, entradas de mercancía, cortes de caja, ventas con sus pagos y recetas, y los movimientos de inventario y de caja. **Qué no sube:** usuarios, contraseñas ni la bitácora.
+
+**Cómo se reconcilia:**
+- Ventas y entradas solo se **agregan**. Conservan su folio y su fecha.
+- Catálogo y existencias: lo **local manda**. Si en la nube cambias un precio o una existencia, la siguiente subida lo reemplaza. Por eso en la nube no se vende ni se edita el inventario.
+- El mismo producto se reconoce por su código de barras; las categorías y proveedores, por su nombre.
+- Las ventas se emparejan con las cuentas por **correo**: cada cajero debe tener en la nube una cuenta con el mismo correo (se crea desde **Usuarios** de la nube). Si falta alguna, esas ventas esperan y el botón dice qué correo crear; al volver a subir, suben solas.
+
+### Preparar (una sola vez)
+
+1. **En Supabase**, SQL Editor: ejecuta `supabase/migrations/20261031120000_subir_datos.sql`. Crea tres funciones que solo puede ejecutar la clave de servicio.
+2. **En la base local**, si ya estaba instalada (como `postgres`, con respaldo antes; una instalación nueva ya lo trae):
+
+   ```bash
+   sudo -u postgres pg_dump larafarmadb > ~/respaldo-$(date +%F).sql
+   ```
+
+   ```bash
+   sudo -u postgres psql -d larafarmadb -v ON_ERROR_STOP=1 < postgres/actualizaciones/20261031_subir_datos.sql
+   ```
+
+3. **En el servidor**, agrega las llaves de Supabase (Project Settings → API; la clave es la `service_role`, la secreta):
+
+   ```bash
+   sudo nano /etc/larafarma/larafarma.env
+   ```
+
+   ```
+   SUPABASE_URL=https://TU-PROYECTO.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=la-clave-secreta
+   ```
+
+   ```bash
+   sudo systemctl restart larafarma
+   ```
+
+4. **En la nube**, crea las cuentas de los cajeros con el mismo correo que en local.
+5. Entra a **Configuración → Subir datos**. La primera vez tarda más porque sube todo el catálogo.
+
+Si algo falla, el botón lo explica (sin internet, clave incorrecta, falta ejecutar la migración…) y puedes volver a intentar. El historial de subidas queda en la tabla `sincronizaciones`.
+
+Si en tu computadora de desarrollo tienes el `.env` con las llaves reales de Supabase, **"Subir datos" sube a tu Supabase real**. Para probar sin riesgo usa `pnpm probar:subida`, que no toca nada tuyo.
+
+## 4.3 Publicar en Vercel
 
 Vercel no puede llegar a un PostgreSQL que solo existe en tu red local. Para publicarlo ahí, la base debe estar en un servidor accesible por internet (con SSL) y `DATABASE_URL` debe apuntar a ella en **Settings → Environment Variables**.
 
@@ -190,4 +237,8 @@ Reglas de la base: crea un PostgreSQL temporal, carga `postgres/larafarma.sql` y
 pnpm probar:postgres
 ```
 
-`pnpm probar:base` sigue probando la versión de Supabase (`supabase/migrations/`).
+```bash
+pnpm probar:subida
+```
+
+`pnpm probar:subida` prueba "Subir datos" de punta a punta: una base local, una que imita Supabase y una API de mentira. `pnpm probar:base` sigue probando la versión de Supabase (`supabase/migrations/`).

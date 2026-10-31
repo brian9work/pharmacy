@@ -147,6 +147,17 @@ Permisos iniciales del empleado: vender, abrir y cerrar su caja, consultar inven
 
 En **Configuración** capturas razón social, RFC, dirección, teléfono y el mensaje al pie del ticket. El nombre y el logo del sistema se cambian en `config/marca.ts`.
 
+### Subir datos a la nube
+
+Más abajo, en la misma pantalla, está **Subir datos**. Manda a la nube lo que todavía no está allá, para que lo consultes desde cualquier lugar: ventas, entradas de mercancía, cortes de caja, productos y existencias.
+
+1. Pulsa **Subir datos** (por ejemplo al cerrar el día) y espera. La primera vez tarda más.
+2. Al terminar dice qué se subió. Si volvieras a pulsarlo, no se duplica nada.
+3. Si dice que **faltan cuentas en la nube**, crea ahí a esa persona con el **mismo correo** y vuelve a subir: sus ventas se suben entonces.
+4. Si falla (sin internet, por ejemplo), lo explica. Puedes volver a intentar.
+
+En la nube solo se consulta: las ventas se hacen en el sistema de la farmacia. Si cambias un precio o una existencia en la nube, la siguiente subida lo reemplaza por lo que hay en la farmacia.
+
 ## Lo que todavía no tiene pantalla
 
 Por ahora se hacen directo en la base (con psql o pgAdmin, como dueño) o están listos en la base pero sin pantalla:

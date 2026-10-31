@@ -51,6 +51,15 @@ Las reglas importantes viven en la base de datos, no solo en las pantallas. Aunq
 
 Si la contraseña de la base se filtra, cámbiala (`\password larafarma_web` en psql) y actualiza `.env`.
 
+## Subir datos a la nube
+
+- El servidor local habla con Supabase con la **clave de servicio** (`SUPABASE_SERVICE_ROLE_KEY`). Esa clave se salta todas las reglas de Supabase: vive solo en `/etc/larafarma/larafarma.env` (lo lee solo root) y en `lib/nube.ts` (marcado `server-only`); nunca va al navegador.
+- Las tres funciones de la nube (`mapa_usuarios`, `subir_catalogo`, `subir_operacion`) **solo las puede ejecutar la clave de servicio**: ni un administrador con sesión ni `anon` pueden. Está probado.
+- El modo importación (`farmacia.importando`) se activa dentro de esas funciones, solo durante su transacción. Una venta nueva sobre un turno cerrado sigue bloqueada, y las ventas siguen sin poderse insertar directo.
+- Subir solo **agrega** ventas y entradas: nada las modifica ni las borra en la nube. Catálogo y existencias sí los reemplaza lo local.
+- En local, armar lo que se sube (incluye costos) pide el permiso `configuracion.editar`; solo un administrador lo tiene por omisión.
+- Si la clave de servicio se filtra, cámbiala en **Supabase → Project Settings → API** y actualiza `larafarma.env`.
+
 ## Otros cuidados
 
 - Las respuestas con cookies de sesión no se guardan en caché.
@@ -64,6 +73,7 @@ Si la contraseña de la base se filtra, cámbiala (`\password larafarma_web` en 
 - **Corte ciego parcial.** La pantalla y la vista ocultan el efectivo esperado, pero un empleado con conocimientos técnicos podría sumar sus propias ventas en efectivo consultando la base con su sesión.
 - **Intentos por cuenta, no por equipo.** La espera tras 5 intentos fallidos es de la cuenta: alguien que adivine correos puede hacer esperar a otra persona 15 minutos.
 - **Quien tiene la contraseña de la base** (`DATABASE_URL`) puede intentar contraseñas sin pasar por la pantalla. Las reglas siguen aplicando, pero protege ese archivo.
+- **La clave de servicio está en el servidor de la farmacia.** Quien entre a ese servidor como administrador del sistema (root) puede leerla. Protege el servidor y no la copies a otros lados.
 - **Bloqueo de saldo de lotes.** La protección contra cambiar piezas sin movimiento evita errores de la aplicación, pero el dueño de la base (`postgres`) puede saltársela.
 
 ## Pruebas
@@ -72,7 +82,7 @@ Si la contraseña de la base se filtra, cámbiala (`\password larafarma_web` en 
 pnpm probar:postgres
 ```
 
-Son 42 pruebas sobre `postgres/larafarma.sql` en un PostgreSQL temporal. Cubren:
+Son 60 pruebas sobre `postgres/larafarma.sql` en un PostgreSQL temporal. Cubren:
 
 - Sin sesión: no se ve nada; no se leen sesiones ni hashes; un token inventado no sirve.
 - Acceso: contraseña equivocada, correo inexistente (mismo mensaje), cambio obligatorio de la temporal, cambio con la actual equivocada.
@@ -81,5 +91,6 @@ Son 42 pruebas sobre `postgres/larafarma.sql` en un PostgreSQL temporal. Cubren:
 - Empleado: costos, reportes, crear admin, hacerse admin.
 - Bloqueo: cuenta bloqueada no entra y pierde la sesión; no se bloquea al último admin.
 - Cerrar sesión y espera tras 5 intentos fallidos.
+- Subir datos (lo local): solo con `configuracion.editar`, una subida a la vez, el punto de partida solo avanza con subidas completas, los productos van con costo y de las cuentas solo id y correo.
 
-`pnpm probar:base` corre las 100 pruebas de la versión de Supabase y `pnpm probar` las 54 de la lógica de la aplicación.
+`pnpm probar:subida` prueba "Subir datos" de punta a punta (11 comprobaciones: lo pendiente por cuentas que faltan, no repetir, folios, existencias, costos, caja, cortes, reportes idénticos entre local y nube, clave mala y sin conexión). `pnpm probar:base` corre las 127 pruebas de la versión de Supabase, que incluyen que solo la clave de servicio ejecuta las funciones de subida, y `pnpm probar` las 61 de la lógica de la aplicación.
