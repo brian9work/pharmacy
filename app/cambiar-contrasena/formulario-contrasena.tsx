@@ -23,12 +23,6 @@ export function FormularioContrasena({ correo }: { correo: string }) {
 
         <div className="mt-6 space-y-5">
           <div>
-            <label htmlFor="actual" className={etiquetaCampo}>
-              {textos.actual}
-            </label>
-            <input id="actual" name="actual" type="password" autoComplete="current-password" required className={campo} />
-          </div>
-          <div>
             <label htmlFor="nueva" className={etiquetaCampo}>
               {textos.nueva}
             </label>

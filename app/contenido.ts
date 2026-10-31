@@ -19,7 +19,6 @@ export const acceso = {
 export const cambioContrasena = {
   titulo: "Crea tu contraseña",
   descripcion: "Tu cuenta tiene una contraseña temporal. Elige una nueva para continuar.",
-  actual: "Contraseña temporal",
   nueva: "Contraseña nueva",
   confirmar: "Repite la contraseña",
   ayuda: "Mínimo 10 caracteres. Usa una frase que recuerdes.",

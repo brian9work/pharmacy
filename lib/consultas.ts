@@ -1,14 +1,15 @@
 // Consultas que usan las pantallas. Corren con la sesión de quien entró,
-// así que PostgreSQL aplica sus reglas RLS: cada quien ve solo lo permitido.
+// así que Supabase aplica sus reglas RLS: cada quien ve solo lo permitido.
 
 import "server-only";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { CLAVES_PERMISO, type ClavePermiso, type Modulo, type Permiso, type Rol } from "@/config/permisos";
-import { consultar, consultarFila, tokenActual, transaccion } from "@/lib/db/sesion";
-import { mensajeDeError, type ErrorBase } from "@/lib/errores";
+import { mensajeDeError } from "@/lib/errores";
 import { enZona, fechaCorta, horaEn, hoyEn, momentoEn } from "@/lib/formato";
 import { alertasDe, lotesVendibles, ordenarFEFO, sumarPiezas, type Alerta } from "@/lib/inventario";
+import { clienteServidor } from "@/lib/supabase/servidor";
 import type {
   Categoria,
   Clasificacion,
@@ -36,11 +37,11 @@ import type {
 
 const ZONA_POR_OMISION = "America/Mexico_City";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** La API de Supabase devuelve como máximo 1000 filas por consulta. */
+const PAGINA = 1000;
 
-// Productos con su categoría. Nunca el costo: está oculto por privilegios de columna.
-const COLUMNAS_PRODUCTO = `p.id, p.codigo_barras, p.nombre, p.sustancia, p.presentacion, p.laboratorio, p.clasificacion,
-  p.requiere_receta, p.precio, p.iva, p.stock_minimo, p.ubicacion, p.refrigerado, c.nombre as categoria`;
-const DESDE_PRODUCTOS = "from productos p left join categorias c on c.id = p.categoria_id";
+const COLUMNAS_PRODUCTO =
+  "id, codigo_barras, nombre, sustancia, presentacion, laboratorio, clasificacion, requiere_receta, precio, iva, stock_minimo, ubicacion, refrigerado, categorias(nombre)";
 const COLUMNAS_LOTE = "id, producto_id, numero, caducidad, cantidad, estado";
 const COLUMNAS_USUARIO = "id, nombre, correo, rol, activo, debe_cambiar_contrasena, ultimo_acceso";
 
@@ -58,7 +59,7 @@ interface FilaProducto {
   stock_minimo: number;
   ubicacion: string;
   refrigerado: boolean;
-  categoria: string | null;
+  categorias: { nombre: string } | null;
 }
 
 interface FilaLote {
@@ -88,7 +89,7 @@ function aProducto(f: FilaProducto): Producto {
     sustancia: f.sustancia,
     presentacion: f.presentacion,
     laboratorio: f.laboratorio,
-    categoria: f.categoria ?? "",
+    categoria: f.categorias?.nombre ?? "",
     clasificacion: f.clasificacion,
     requiereReceta: f.requiere_receta,
     precio: f.precio,
@@ -115,12 +116,21 @@ function aUsuario(f: FilaUsuario, zona: string): Usuario {
   };
 }
 
-/** Espera la consulta o lanza un error con mensaje para la persona (lo muestra error.tsx). */
-async function leer<T>(promesa: Promise<T>): Promise<T> {
-  try {
-    return await promesa;
-  } catch (error) {
-    throw new Error(mensajeDeError(error as ErrorBase));
+type Respuesta<T> = { data: T | null; error: PostgrestError | null };
+
+/** Devuelve los datos o lanza un error que muestra error.tsx. */
+function datos<T>({ data, error }: Respuesta<T>): T {
+  if (error) throw new Error(mensajeDeError(error));
+  return data as T;
+}
+
+/** Trae todas las filas, de 1000 en 1000. */
+async function todas<T>(pedir: (desde: number, hasta: number) => PromiseLike<Respuesta<T[]>>): Promise<T[]> {
+  const filas: T[] = [];
+  for (let desde = 0; ; desde += PAGINA) {
+    const pagina = datos(await pedir(desde, desde + PAGINA - 1)) ?? [];
+    filas.push(...pagina);
+    if (pagina.length < PAGINA) return filas;
   }
 }
 
@@ -128,22 +138,23 @@ async function leer<T>(promesa: Promise<T>): Promise<T> {
 // Sesión y permisos
 // ---------------------------------------------------------------------------
 
-/**
- * Quien inició sesión. Sin cookie va al acceso; con una sesión vencida,
- * cerrada o de una cuenta bloqueada, /salir borra la cookie.
- */
+/** Quien inició sesión. Sin sesión va al acceso; con cuenta inactiva, sale. */
 export const obtenerSesion = cache(async (): Promise<Sesion> => {
-  if (!(await tokenActual())) redirect("/");
+  const supabase = await clienteServidor();
+  const { data } = await supabase.auth.getClaims();
+  const id = data?.claims?.sub;
+  if (!id) redirect("/");
 
-  const fila = await leer(consultarFila<FilaUsuario>(`select ${COLUMNAS_USUARIO} from usuarios where id = usuario_actual()`));
-  if (!fila || !fila.activo) redirect("/salir");
+  const { data: fila } = await supabase.from("usuarios").select(COLUMNAS_USUARIO).eq("id", id).maybeSingle<FilaUsuario>();
+  if (!fila || !fila.activo) redirect("/salir?motivo=inactiva");
 
   return { usuario: aUsuario(fila, ZONA_POR_OMISION) };
 });
 
 export const obtenerPermisos = cache(async (): Promise<Set<ClavePermiso>> => {
   const { usuario } = await obtenerSesion();
-  const filas = await leer(consultar<{ permiso: ClavePermiso }>("select permiso from permisos_efectivos where usuario_id = $1", [usuario.id]));
+  const supabase = await clienteServidor();
+  const filas = datos(await supabase.from("permisos_efectivos").select("permiso").eq("usuario_id", usuario.id)) as { permiso: ClavePermiso }[];
   return new Set(filas.map((f) => f.permiso));
 });
 
@@ -152,8 +163,9 @@ export async function puede(clave: ClavePermiso): Promise<boolean> {
 }
 
 export const obtenerZona = cache(async (): Promise<string> => {
-  const fila = await consultarFila<{ zona_horaria: string }>("select zona_horaria from negocio where id = 1").catch(() => null);
-  return fila?.zona_horaria ?? ZONA_POR_OMISION;
+  const supabase = await clienteServidor();
+  const { data } = await supabase.from("negocio").select("zona_horaria").eq("id", 1).maybeSingle<{ zona_horaria: string }>();
+  return data?.zona_horaria ?? ZONA_POR_OMISION;
 });
 
 export const obtenerHoy = cache(async (): Promise<string> => hoyEn(await obtenerZona()));
@@ -183,20 +195,28 @@ function armarFila(producto: Producto, lotes: Lote[], hoy: string): FilaInventar
 }
 
 export const obtenerProductos = cache(async (): Promise<Producto[]> => {
-  const filas = await leer(consultar<FilaProducto>(`select ${COLUMNAS_PRODUCTO} ${DESDE_PRODUCTOS} where p.activo order by p.nombre, p.id`));
+  const supabase = await clienteServidor();
+  const filas = await todas<FilaProducto>((desde, hasta) =>
+    supabase
+      .from("productos")
+      .select(COLUMNAS_PRODUCTO)
+      .eq("activo", true)
+      .order("nombre")
+      .order("id")
+      .range(desde, hasta)
+      .overrideTypes<FilaProducto[], { merge: false }>(),
+  );
   return filas.map(aProducto);
 });
 
 /** Lotes con piezas, agrupados por producto. */
 async function lotesConPiezas(filtro?: { vendiblesDesde: string }): Promise<Map<string, Lote[]>> {
-  const filas = await leer(
-    filtro
-      ? consultar<FilaLote>(
-          `select ${COLUMNAS_LOTE} from lotes where cantidad > 0 and estado = 'disponible' and caducidad >= $1 order by caducidad, id`,
-          [filtro.vendiblesDesde],
-        )
-      : consultar<FilaLote>(`select ${COLUMNAS_LOTE} from lotes where cantidad > 0 order by caducidad, id`),
-  );
+  const supabase = await clienteServidor();
+  const filas = await todas<FilaLote>((desde, hasta) => {
+    let consulta = supabase.from("lotes").select(COLUMNAS_LOTE).gt("cantidad", 0);
+    if (filtro) consulta = consulta.eq("estado", "disponible").gte("caducidad", filtro.vendiblesDesde);
+    return consulta.order("caducidad").order("id").range(desde, hasta);
+  });
   const porProducto = new Map<string, Lote[]>();
   for (const fila of filas) {
     const lote = aLote(fila);
@@ -212,40 +232,47 @@ export const obtenerInventario = cache(async (): Promise<FilaInventario[]> => {
 
 export async function obtenerFilaInventario(id: string): Promise<FilaInventario | null> {
   if (!UUID.test(id)) return null;
-  const [fila, lotes, hoy] = await Promise.all([
-    leer(consultarFila<FilaProducto>(`select ${COLUMNAS_PRODUCTO} ${DESDE_PRODUCTOS} where p.id = $1`, [id])),
-    leer(consultar<FilaLote>(`select ${COLUMNAS_LOTE} from lotes where producto_id = $1 order by caducidad limit 200`, [id])),
+  const supabase = await clienteServidor();
+  const [producto, lotes, hoy] = await Promise.all([
+    supabase.from("productos").select(COLUMNAS_PRODUCTO).eq("id", id).maybeSingle<FilaProducto>(),
+    supabase.from("lotes").select(COLUMNAS_LOTE).eq("producto_id", id).order("caducidad").limit(200),
     obtenerHoy(),
   ]);
+  const fila = datos(producto);
   if (!fila) return null;
-  return armarFila(aProducto(fila), lotes.map(aLote), hoy);
+  return armarFila(aProducto(fila), (datos(lotes) as FilaLote[]).map(aLote), hoy);
 }
 
 /** Costo por producto. Solo con el permiso inventario.costos. */
 export const obtenerCostos = cache(async (): Promise<Map<string, number>> => {
   if (!(await puede("inventario.costos"))) return new Map();
-  const filas = await leer(consultar<{ producto_id: string; costo: number }>("select producto_id, costo from costos_productos()"));
+  const supabase = await clienteServidor();
+  const filas = await todas<{ producto_id: string; costo: number }>((desde, hasta) =>
+    supabase.rpc("costos_productos").range(desde, hasta),
+  );
   return new Map(filas.map((f) => [f.producto_id, f.costo]));
 });
 
 export async function obtenerKardex(productoId: string): Promise<MovimientoKardex[]> {
-  const [filas, zona] = await Promise.all([
-    leer(
-      consultar<{
-        id: number;
-        creado_en: string;
-        tipo: TipoMovimiento;
-        cantidad: number;
-        lote: string;
-        usuario: string | null;
-        referencia: string;
-      }>(
-        "select id, creado_en, tipo, cantidad, lote, usuario, referencia from kardex where producto_id = $1 order by creado_en desc limit 200",
-        [productoId],
-      ),
-    ),
+  const supabase = await clienteServidor();
+  const [respuesta, zona] = await Promise.all([
+    supabase
+      .from("kardex")
+      .select("id, creado_en, tipo, cantidad, lote, usuario, referencia")
+      .eq("producto_id", productoId)
+      .order("creado_en", { ascending: false })
+      .limit(200),
     obtenerZona(),
   ]);
+  const filas = datos(respuesta) as {
+    id: number;
+    creado_en: string;
+    tipo: TipoMovimiento;
+    cantidad: number;
+    lote: string;
+    usuario: string | null;
+    referencia: string;
+  }[];
   return filas.map((f) => ({
     id: f.id,
     fecha: momentoEn(f.creado_en, zona),
@@ -269,22 +296,26 @@ export async function obtenerCatalogoVenta() {
 }
 
 export async function obtenerVentasDeHoy(): Promise<VentaResumen[]> {
-  const [filas, zona] = await Promise.all([
-    leer(
-      consultar<{
-        id: string;
-        folio: number;
-        creado_en: string;
-        usuario_id: string;
-        cajero: string | null;
-        total: number;
-        estado: "pagada" | "cancelada";
-        metodo: string | null;
-        piezas: number;
-      }>("select id, folio, creado_en, usuario_id, cajero, total, estado, metodo, piezas from ventas_de_hoy order by folio desc limit 100"),
-    ),
+  const supabase = await clienteServidor();
+  const [respuesta, zona] = await Promise.all([
+    supabase
+      .from("ventas_de_hoy")
+      .select("id, folio, creado_en, usuario_id, cajero, total, estado, metodo, piezas")
+      .order("folio", { ascending: false })
+      .limit(100),
     obtenerZona(),
   ]);
+  const filas = datos(respuesta) as {
+    id: string;
+    folio: number;
+    creado_en: string;
+    usuario_id: string;
+    cajero: string | null;
+    total: number;
+    estado: "pagada" | "cancelada";
+    metodo: string | null;
+    piezas: number;
+  }[];
   return filas.map((f) => ({
     id: f.id,
     folio: `V-${String(f.folio).padStart(6, "0")}`,
@@ -304,66 +335,61 @@ export async function obtenerVentasDeHoy(): Promise<VentaResumen[]> {
  */
 export async function obtenerTicket(ventaId: string): Promise<Ticket | null> {
   if (!UUID.test(ventaId)) return null;
-  const zona = await obtenerZona();
+  const supabase = await clienteServidor();
+  const venta = datos(
+    await supabase
+      .from("ventas")
+      .select("id, folio, creado_en, usuario_id, turno_id, subtotal, iva, total, estado")
+      .eq("id", ventaId)
+      .maybeSingle(),
+  ) as {
+    id: string;
+    folio: number;
+    creado_en: string;
+    usuario_id: string;
+    turno_id: string;
+    subtotal: number;
+    iva: number;
+    total: number;
+    estado: "pagada" | "cancelada";
+  } | null;
+  if (!venta) return null;
 
-  const leido = await leer(
-    transaccion(async (c) => {
-      const [venta] = await c<{
-        id: string;
-        folio: number;
-        creado_en: string;
-        usuario_id: string;
-        turno_id: string;
-        subtotal: number;
-        iva: number;
-        total: number;
-        estado: "pagada" | "cancelada";
-      }>("select id, folio, creado_en, usuario_id, turno_id, subtotal, iva, total, estado from ventas where id = $1", [ventaId]);
-      if (!venta) return null;
+  const [partidas, pagos, negocio, cajero, turno, receta, zona] = await Promise.all([
+    supabase.from("venta_partidas").select("producto_id, cantidad, precio, importe").eq("venta_id", ventaId).order("id"),
+    supabase.from("venta_pagos").select("metodo, monto, recibido").eq("venta_id", ventaId).order("id"),
+    supabase.from("negocio").select("razon_social, rfc, direccion, telefono, pie_ticket").eq("id", 1).maybeSingle(),
+    supabase.from("usuarios").select("nombre").eq("id", venta.usuario_id).maybeSingle(),
+    supabase.from("turnos_caja").select("cajas(nombre)").eq("id", venta.turno_id).maybeSingle(),
+    supabase.from("recetas").select("tipo, medico, cedula, folio_receta, retenida").eq("venta_id", ventaId).maybeSingle(),
+    obtenerZona(),
+  ]);
+  const filaReceta = datos(receta) as { tipo: TipoReceta; medico: string; cedula: string; folio_receta: string; retenida: boolean } | null;
 
-      // left join: si quien pregunta no puede ver el producto, el renglón sale igual.
-      const partidas = await c<{ producto_id: string; nombre: string | null; cantidad: number; precio: number; importe: number }>(
-        `select vp.producto_id, p.nombre, vp.cantidad, vp.precio, vp.importe
-         from venta_partidas vp left join productos p on p.id = vp.producto_id
-         where vp.venta_id = $1 order by vp.id`,
-        [ventaId],
-      );
-      const pagos = await c<{ metodo: MetodoPago; monto: number; recibido: number | null }>(
-        "select metodo, monto, recibido from venta_pagos where venta_id = $1 order by id",
-        [ventaId],
-      );
-      const [negocio] = await c<{ razon_social: string; rfc: string; direccion: string; telefono: string; pie_ticket: string }>(
-        "select razon_social, rfc, direccion, telefono, pie_ticket from negocio where id = 1",
-      );
-      const [cajero] = await c<{ nombre: string }>("select nombre from usuarios where id = $1", [venta.usuario_id]);
-      const [caja] = await c<{ nombre: string }>(
-        "select c.nombre from turnos_caja t join cajas c on c.id = t.caja_id where t.id = $1",
-        [venta.turno_id],
-      );
-      const [receta] = await c<{ tipo: TipoReceta; medico: string; cedula: string; folio_receta: string; retenida: boolean }>(
-        "select tipo, medico, cedula, folio_receta, retenida from recetas where venta_id = $1",
-        [ventaId],
-      );
-      return { venta, partidas, pagos, negocio, cajero, caja, receta };
-    }),
+  const filas = datos(partidas) as { producto_id: string; cantidad: number; precio: number; importe: number }[];
+  const ids = [...new Set(filas.map((f) => f.producto_id))];
+  const nombres = new Map(
+    (datos(await supabase.from("productos").select("id, nombre").in("id", ids)) as { id: string; nombre: string }[]).map((p) => [p.id, p.nombre]),
   );
-  if (!leido) return null;
-  const { venta, partidas, pagos, negocio: n, cajero, caja, receta } = leido;
 
   // Si una venta tomó piezas de dos lotes, en el ticket va un solo renglón.
   const renglones = new Map<string, { nombre: string; cantidad: number; precio: number; importe: number }>();
-  for (const f of partidas) {
+  for (const f of filas) {
     const clave = `${f.producto_id}:${f.precio}`;
     const previo = renglones.get(clave);
     renglones.set(clave, {
-      nombre: f.nombre ?? "Producto",
+      nombre: nombres.get(f.producto_id) ?? "Producto",
       cantidad: (previo?.cantidad ?? 0) + f.cantidad,
       precio: f.precio,
       importe: (previo?.importe ?? 0) + f.importe,
     });
   }
 
-  const efectivo = pagos.find((p) => p.metodo === "efectivo" && p.recibido !== null);
+  const listaPagos = (datos(pagos) as { metodo: MetodoPago; monto: number; recibido: number | null }[]) ?? [];
+  const efectivo = listaPagos.find((p) => p.metodo === "efectivo" && p.recibido !== null);
+  const n = datos(negocio) as { razon_social: string; rfc: string; direccion: string; telefono: string; pie_ticket: string } | null;
+  // Sin tipos generados, Supabase cree que la relación es una lista; es una sola caja.
+  const caja = (datos(turno) as unknown as { cajas: { nombre: string } | null } | null)?.cajas?.nombre ?? "";
   const momento = enZona(new Date(venta.creado_en), zona);
 
   return {
@@ -371,8 +397,8 @@ export async function obtenerTicket(ventaId: string): Promise<Ticket | null> {
     folio: `V-${String(venta.folio).padStart(6, "0")}`,
     fecha: fechaCorta(momento.fecha),
     hora: momento.hora,
-    caja: caja?.nombre ?? "",
-    cajero: cajero?.nombre ?? "",
+    caja,
+    cajero: (datos(cajero) as { nombre: string } | null)?.nombre ?? "",
     negocio: {
       razonSocial: n?.razon_social ?? "",
       rfc: n?.rfc ?? "",
@@ -381,15 +407,15 @@ export async function obtenerTicket(ventaId: string): Promise<Ticket | null> {
       pie: n?.pie_ticket ?? "",
     },
     partidas: [...renglones.values()],
-    piezas: partidas.reduce((suma, f) => suma + f.cantidad, 0),
+    piezas: filas.reduce((suma, f) => suma + f.cantidad, 0),
     subtotal: venta.subtotal,
     iva: venta.iva,
     total: venta.total,
-    pagos,
+    pagos: listaPagos,
     cambio: efectivo?.recibido != null ? efectivo.recibido - efectivo.monto : null,
     cancelada: venta.estado === "cancelada",
-    receta: receta
-      ? { tipo: receta.tipo, medico: receta.medico, cedula: receta.cedula, folio: receta.folio_receta, retenida: receta.retenida }
+    receta: filaReceta
+      ? { tipo: filaReceta.tipo, medico: filaReceta.medico, cedula: filaReceta.cedula, folio: filaReceta.folio_receta, retenida: filaReceta.retenida }
       : null,
   };
 }
@@ -420,8 +446,8 @@ function aRenglon(r: Json, campo: string): RenglonReporte {
 
 /** Reporte de ventas del periodo. La base revisa el permiso reportes.ver. */
 export async function obtenerReporte(desde: string, hasta: string): Promise<Reporte> {
-  const fila = await leer(consultarFila<{ r: Record<string, Json & Json[]> }>("select reporte_ventas($1, $2) as r", [desde, hasta]));
-  const r = fila!.r;
+  const supabase = await clienteServidor();
+  const r = datos(await supabase.rpc("reporte_ventas", { p_desde: desde, p_hasta: hasta })) as Record<string, Json & Json[]>;
   const lista = (clave: string) => (r[clave] as unknown as Json[]) ?? [];
   return {
     resumen: aResumen(r.resumen),
@@ -439,11 +465,10 @@ export async function obtenerReporte(desde: string, hasta: string): Promise<Repo
 
 /** Datos del negocio para el ticket y la pantalla de configuración. */
 export async function obtenerNegocio() {
-  const fila = await leer(
-    consultarFila<{ razon_social: string; rfc: string; direccion: string; telefono: string; pie_ticket: string; dias_aviso_caducidad: number }>(
-      "select razon_social, rfc, direccion, telefono, pie_ticket, dias_aviso_caducidad from negocio where id = 1",
-    ),
-  );
+  const supabase = await clienteServidor();
+  const fila = datos(
+    await supabase.from("negocio").select("razon_social, rfc, direccion, telefono, pie_ticket, dias_aviso_caducidad").eq("id", 1).maybeSingle(),
+  ) as { razon_social: string; rfc: string; direccion: string; telefono: string; pie_ticket: string; dias_aviso_caducidad: number } | null;
   return {
     razonSocial: fila?.razon_social ?? "",
     rfc: fila?.rfc ?? "",
@@ -457,35 +482,40 @@ export async function obtenerNegocio() {
 /** La caja abierta de quien inició sesión, o null. */
 export async function obtenerTurnoAbierto(): Promise<Turno | null> {
   const { usuario } = await obtenerSesion();
-  const [t, zona] = await Promise.all([
-    leer(
-      consultarFila<{
-        id: string;
-        caja: string;
-        abierto_en: string;
-        fondo_inicial: number;
-        ventas: number;
-        ventas_tarjeta: number;
-        ventas_transferencia: number;
-        ventas_efectivo: number | null;
-        retiros: number | null;
-        efectivo_esperado: number | null;
-      }>(
-        `select id, caja, abierto_en, fondo_inicial, ventas, ventas_tarjeta, ventas_transferencia, ventas_efectivo, retiros, efectivo_esperado
-         from resumen_turnos where usuario_id = $1 and cerrado_en is null`,
-        [usuario.id],
-      ),
-    ),
+  const supabase = await clienteServidor();
+  const [respuesta, zona] = await Promise.all([
+    supabase
+      .from("resumen_turnos")
+      .select(
+        "id, caja, abierto_en, fondo_inicial, ventas, ventas_tarjeta, ventas_transferencia, ventas_efectivo, retiros, efectivo_esperado",
+      )
+      .eq("usuario_id", usuario.id)
+      .is("cerrado_en", null)
+      .maybeSingle(),
     obtenerZona(),
   ]);
+  const t = datos(respuesta) as {
+    id: string;
+    caja: string;
+    abierto_en: string;
+    fondo_inicial: number;
+    ventas: number;
+    ventas_tarjeta: number;
+    ventas_transferencia: number;
+    ventas_efectivo: number | null;
+    retiros: number | null;
+    efectivo_esperado: number | null;
+  } | null;
   if (!t) return null;
 
-  const movimientos = await leer(
-    consultar<{ id: number; creado_en: string; tipo: TipoMovimientoCaja; metodo: MetodoPago; concepto: string; monto: number }>(
-      "select id, creado_en, tipo, metodo, concepto, monto from movimientos_caja where turno_id = $1 order by creado_en limit 500",
-      [t.id],
-    ),
-  );
+  const movimientos = datos(
+    await supabase
+      .from("movimientos_caja")
+      .select("id, creado_en, tipo, metodo, concepto, monto")
+      .eq("turno_id", t.id)
+      .order("creado_en")
+      .limit(500),
+  ) as { id: number; creado_en: string; tipo: TipoMovimientoCaja; metodo: MetodoPago; concepto: string; monto: number }[];
 
   return {
     id: t.id,
@@ -509,71 +539,75 @@ export async function obtenerTurnoAbierto(): Promise<Turno | null> {
 // ---------------------------------------------------------------------------
 
 export async function obtenerProveedores(): Promise<Proveedor[]> {
-  return leer(consultar<Proveedor>("select id, nombre from proveedores where activo order by nombre"));
+  const supabase = await clienteServidor();
+  return datos(await supabase.from("proveedores").select("id, nombre").eq("activo", true).order("nombre")) as Proveedor[];
 }
 
 export async function obtenerUsuarios(): Promise<Usuario[]> {
+  const supabase = await clienteServidor();
   const [filas, zona] = await Promise.all([
-    leer(consultar<FilaUsuario>(`select ${COLUMNAS_USUARIO} from usuarios order by nombre`)),
+    todas<FilaUsuario>((desde, hasta) => supabase.from("usuarios").select(COLUMNAS_USUARIO).order("nombre").range(desde, hasta)),
     obtenerZona(),
   ]);
   return filas.map((f) => aUsuario(f, zona));
 }
 
 export async function obtenerCategorias(): Promise<Categoria[]> {
-  return leer(consultar<Categoria>("select id, nombre from categorias order by nombre"));
+  const supabase = await clienteServidor();
+  return datos(await supabase.from("categorias").select("id, nombre").order("nombre")) as Categoria[];
 }
 
 /** Proveedores activos e inactivos, para administrarlos. */
 export async function obtenerProveedoresTodos(): Promise<ProveedorCompleto[]> {
-  return leer(consultar<ProveedorCompleto>("select id, nombre, rfc, telefono, correo, activo from proveedores order by activo desc, nombre"));
+  const supabase = await clienteServidor();
+  return datos(
+    await supabase.from("proveedores").select("id, nombre, rfc, telefono, correo, activo").order("activo", { ascending: false }).order("nombre"),
+  ) as ProveedorCompleto[];
 }
 
 export async function obtenerProductoParaEditar(id: string): Promise<ProductoEdicion | null> {
   if (!UUID.test(id)) return null;
-  const fila = await leer(
-    consultarFila<FilaProducto & { categoria_id: number | null; activo: boolean }>(
-      `select ${COLUMNAS_PRODUCTO}, p.categoria_id, p.activo ${DESDE_PRODUCTOS} where p.id = $1`,
-      [id],
-    ),
-  );
+  const supabase = await clienteServidor();
+  const fila = datos(
+    await supabase
+      .from("productos")
+      .select(`${COLUMNAS_PRODUCTO}, categoria_id, activo`)
+      .eq("id", id)
+      .maybeSingle(),
+  ) as unknown as (FilaProducto & { categoria_id: number | null; activo: boolean }) | null;
   return fila ? { ...aProducto(fila), categoriaId: fila.categoria_id, activo: fila.activo } : null;
 }
 
 export async function obtenerProductosInactivos(): Promise<{ id: string; nombre: string; presentacion: string }[]> {
-  return leer(
-    consultar<{ id: string; nombre: string; presentacion: string }>(
-      "select id, nombre, presentacion from productos where not activo order by nombre limit 500",
-    ),
-  );
+  const supabase = await clienteServidor();
+  return datos(
+    await supabase.from("productos").select("id, nombre, presentacion").eq("activo", false).order("nombre").limit(500),
+  ) as { id: string; nombre: string; presentacion: string }[];
 }
 
 /** Códigos de barras ya usados (activos e inactivos), para avisar antes de guardar. */
 export async function obtenerCodigosRegistrados(): Promise<Record<string, { id: string; nombre: string }>> {
-  const filas = await leer(
-    consultar<{ id: string; nombre: string; codigo_barras: string }>(
-      "select id, nombre, codigo_barras from productos where codigo_barras is not null order by id",
-    ),
+  const supabase = await clienteServidor();
+  const filas = await todas<{ id: string; nombre: string; codigo_barras: string }>((desde, hasta) =>
+    supabase.from("productos").select("id, nombre, codigo_barras").not("codigo_barras", "is", null).order("id").range(desde, hasta),
   );
   return Object.fromEntries(filas.map((f) => [f.codigo_barras.toUpperCase(), { id: f.id, nombre: f.nombre }]));
 }
 
 /** Catálogo de permisos y los que hoy tiene el rol empleado. */
 export async function obtenerPermisosConfigurables(): Promise<{ catalogo: Permiso[]; empleado: ClavePermiso[] }> {
-  const [filas, asignados] = await Promise.all([
-    leer(
-      consultar<{ clave: ClavePermiso; modulo: Modulo; nombre: string; descripcion: string; solo_admin: boolean }>(
-        "select clave, modulo, nombre, descripcion, solo_admin from permisos",
-      ),
-    ),
-    leer(consultar<{ permiso: ClavePermiso }>("select permiso from rol_permisos where rol = 'empleado'")),
+  const supabase = await clienteServidor();
+  const [catalogo, asignados] = await Promise.all([
+    supabase.from("permisos").select("clave, modulo, nombre, descripcion, solo_admin"),
+    supabase.from("rol_permisos").select("permiso").eq("rol", "empleado"),
   ]);
   const orden = (clave: string) => CLAVES_PERMISO.indexOf(clave as ClavePermiso);
+  const filas = datos(catalogo) as { clave: ClavePermiso; modulo: Modulo; nombre: string; descripcion: string; solo_admin: boolean }[];
   return {
     catalogo: filas
       .filter((f) => orden(f.clave) >= 0)
       .sort((a, b) => orden(a.clave) - orden(b.clave))
       .map((f) => ({ clave: f.clave, modulo: f.modulo, nombre: f.nombre, descripcion: f.descripcion, soloAdmin: f.solo_admin })),
-    empleado: asignados.map((f) => f.permiso),
+    empleado: (datos(asignados) as { permiso: ClavePermiso }[]).map((f) => f.permiso),
   };
 }

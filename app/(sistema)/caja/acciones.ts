@@ -2,14 +2,15 @@
 
 import { refresh } from "next/cache";
 import { mensajeDeError, type Resultado } from "@/lib/errores";
-import { consultarFila, intentar } from "@/lib/db/sesion";
+import { clienteServidor } from "@/lib/supabase/servidor";
 
 const MAXIMO = 100_000_000; // $1,000,000.00
 
 export async function abrirCaja(fondo: number): Promise<Resultado> {
   if (!Number.isInteger(fondo) || fondo < 0 || fondo > MAXIMO) return { ok: false, error: "El fondo inicial no es válido." };
 
-  const { error } = await intentar(consultarFila("select abrir_turno($1)", [fondo]));
+  const supabase = await clienteServidor();
+  const { error } = await supabase.rpc("abrir_turno", { p_fondo: fondo });
   if (error) return { ok: false, error: mensajeDeError(error) };
 
   refresh();
@@ -26,11 +27,10 @@ export async function cerrarCaja(
     return { ok: false, error: "El conteo no es válido." };
   }
 
-  const { datos, error } = await intentar(
-    consultarFila<{ r: { contado: number; esperado: number; diferencia: number } }>("select cerrar_turno($1, $2) as r", [contado, conteo]),
-  );
+  const supabase = await clienteServidor();
+  const { data, error } = await supabase.rpc("cerrar_turno", { p_contado: contado, p_conteo: conteo });
   if (error) return { ok: false, error: mensajeDeError(error) };
 
   refresh();
-  return { ok: true, datos: datos!.r };
+  return { ok: true, datos: data as { contado: number; esperado: number; diferencia: number } };
 }

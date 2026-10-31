@@ -1,8 +1,6 @@
 # Base de datos
 
-PostgreSQL 15 o superior. El esquema completo está en `postgres/larafarma.sql` (un solo archivo con tablas, reglas, funciones, reportes y datos iniciales).
-
-Otras carpetas, como referencia: `supabase/migrations/` es la versión para Supabase (el mismo modelo con Supabase Auth) y `db/` la primera versión; ninguna de las dos la usa esta rama y `db/` no se modifica.
+PostgreSQL en Supabase. El esquema está en `supabase/migrations/`. La carpeta `db/` guarda la primera versión para PostgreSQL sin Supabase; se conserva como referencia y no se modifica.
 
 ## Convenciones
 
@@ -20,12 +18,11 @@ Otras carpetas, como referencia: `supabase/migrations/` es la versión para Supa
 | `roles` | `admin` y `empleado` |
 | `permisos` | Catálogo de 22 permisos (clave, módulo, nombre, `solo_admin`) |
 | `rol_permisos` | Qué permisos tiene el rol empleado (el admin los tiene todos) |
-| `usuarios` | Cuenta: nombre, correo, hash bcrypt de la contraseña, rol, activo, `debe_cambiar_contrasena`, intentos fallidos, último acceso |
-| `sesiones` | Sesiones abiertas: hash SHA-256 del token, vencimiento y cierre. La aplicación no la puede leer |
+| `usuarios` | Datos de la cuenta, con el mismo `id` que `auth.users`: nombre, correo, rol, activo, `debe_cambiar_contrasena`, último acceso |
 | `usuario_permisos` | Excepciones por persona (dar o quitar un permiso sin cambiar su rol) |
 | `bitacora` | Quién hizo qué: accesos, cambios de usuarios, permisos, precios y ventas |
 
-La aplicación no puede leer `hash_contrasena` (privilegios de columna) ni insertar usuarios: las altas y contraseñas pasan por funciones.
+El correo y la contraseña viven en Supabase Auth (`auth.users`). Si el correo cambia allá, un disparador lo copia a `usuarios`.
 
 ### Negocio y catálogo
 
@@ -63,12 +60,8 @@ Son la única forma de escribir ventas, caja, entradas y permisos. Todas revisan
 
 | Función | Permiso | Qué hace |
 |---|---|---|
-| `iniciar_sesion(correo, contraseña)` | ninguno | Revisa la contraseña, cuenta los intentos y devuelve el token de sesión |
-| `cerrar_sesion()` | sesión | Cierra la sesión del token actual |
-| `cambiar_contrasena(actual, nueva)` | sesión | Cambia la propia y cierra las demás sesiones |
-| `crear_usuario(nombre, correo, contraseña, rol)` | `usuarios.gestionar` | Alta con contraseña temporal |
-| `restablecer_contrasena(usuario, temporal)` | `usuarios.gestionar` | Contraseña temporal nueva y cierre de sus sesiones |
-| `crear_primer_admin(nombre, correo, contraseña)` | solo el dueño de la base | Primer administrador, con la tabla de usuarios vacía |
+| `registrar_acceso()` | cuenta activa | Guarda el último acceso y lo anota en la bitácora |
+| `marcar_contrasena_cambiada()` | cuenta activa | Quita la marca de contraseña temporal |
 | `abrir_turno(fondo)` | `caja.abrir` | Abre la primera caja libre para quien llama |
 | `cerrar_turno(contado, conteo)` | `caja.cerrar` | Cierra la caja propia y calcula el efectivo esperado |
 | `registrar_venta(partidas, metodo, recibido, referencia, receta)` | `ventas.vender` | Toma precio e IVA del catálogo, exige la receta si algún producto la pide, asigna lotes FEFO y guarda venta, receta, partidas, pago, kardex y caja |
@@ -78,7 +71,7 @@ Son la única forma de escribir ventas, caja, entradas y permisos. Todas revisan
 | `reporte_ventas(desde, hasta)` | `reportes.ver` | Reporte del periodo y del periodo anterior |
 | `exportar_ventas(desde, hasta)` | `reportes.ver` | Una fila por ticket para CSV |
 
-Apoyo: `usuario_actual()` (dueño del token puesto en `larafarma.token`), `tiene_permiso(clave)`, `usuario_activo()`, `hoy_local()`, `zona_horaria()`. `resumen_ventas()` es interna: nadie la puede llamar directo.
+Apoyo: `tiene_permiso(clave)`, `usuario_activo()`, `hoy_local()`, `zona_horaria()`. `resumen_ventas()` es interna: nadie la puede llamar directo.
 
 ## Vistas
 
@@ -106,11 +99,12 @@ Todas con `security_invoker`: respetan las reglas de quien consulta.
 
 ## Cambiar el esquema
 
-1. Para una base nueva, cambia `postgres/larafarma.sql`. Para una base que ya tiene datos, escribe además un archivo con solo el cambio (`alter table…`, `create or replace function…`) y ejecútalo como dueño de la base.
-2. En cada tabla nueva: activa RLS, escribe sus reglas `to larafarma_app` y revisa qué privilegios necesita la aplicación.
+1. Crea una migración nueva en `supabase/migrations/` con fecha y hora en el nombre (`AAAAMMDDHHMMSS_descripcion.sql`). No edites las ya aplicadas.
+2. En cada tabla nueva: activa RLS y escribe sus reglas.
 3. En cada función nueva:
    - Usa `security definer` solo si de verdad necesita saltarse RLS, y entonces revisa el permiso dentro.
    - Ponle `set search_path = ''` y escribe los nombres completos (`public.tabla`).
-   - Si la usa la aplicación, dale `grant execute … to larafarma_app`. Por omisión nadie la puede ejecutar.
-4. Agrega pruebas a `postgres/pruebas/pruebas.sql` y corre `pnpm probar:postgres`.
-5. Si agregas un permiso, ponlo también en `config/permisos.ts` con la misma clave.
+   - Quita el permiso de ejecución a `public` y `anon`. Si es interna, quítaselo también a `authenticated`; Supabase se lo da por omisión.
+4. Agrega pruebas a `supabase/pruebas/pruebas.sql` y corre `pnpm probar:base`.
+5. Aplícala en Supabase (SQL Editor o `supabase db push`).
+6. Si agregas un permiso, ponlo también en `config/permisos.ts` con la misma clave.

@@ -118,35 +118,10 @@ Pruebas en larafarma.vercel.app con la sesión del administrador, en un entorno 
 - El folio **V-000003** no existe: lo consumió el intento de insertar una venta directo en la tabla, que la base rechazó. PostgreSQL no devuelve números de un consecutivo aunque la operación se cancele.
 - Un primer envío se perdió justo cuando Vercel cambiaba de versión: Next recargó la página. No se repitió.
 
-## 9. PostgreSQL sin Supabase (10 de octubre, rama `postgres`)
+## Pendientes en Supabase
 
-Pedido: cambiar la base a PostgreSQL propio, primero solo el archivo SQL y después la aplicación, en otra rama.
-
-- **`postgres/larafarma.sql`:** todo el esquema de Supabase (con reportes y receta obligatoria) en un archivo para PostgreSQL 15+. Sin Supabase Auth, la base maneja las cuentas:
-  - Contraseñas con hash bcrypt (pgcrypto) en `usuarios`; la aplicación no puede leerlo.
-  - Sesiones propias: `iniciar_sesion()` devuelve un token; la base guarda solo su hash. `usuario_actual()` reemplaza a `auth.uid()` en todas las reglas.
-  - Espera de 15 minutos tras 5 intentos fallidos; bloquear una cuenta cierra sus sesiones.
-  - Rol `larafarma_app` para la aplicación en lugar de `authenticated`.
-- **La aplicación:**
-  - `lib/db/` con `pg` reemplaza a `lib/supabase/`. Cada consulta corre en una transacción con el token de la cookie.
-  - `lib/consultas.ts` y las acciones usan SQL con parámetros.
-  - Acceso, salida, alta y bloqueo de usuarios usan las funciones nuevas.
-  - **Crea tu contraseña** ahora pide también la temporal, porque la base la verifica.
-  - Se quitaron `@supabase/ssr` y `@supabase/supabase-js`.
-- **Pruebas:**
-  - `pnpm probar:postgres`: 42 pruebas nuevas de la base.
-  - Prueba completa en el navegador contra un PostgreSQL temporal:
-    - Acceso con contraseña mala y buena, y cambio de la temporal.
-    - Caja: apertura y corte con el efectivo esperado calculado por la base.
-    - Venta con receta y ticket; reportes y CSV.
-    - Proveedores y categorías; producto nuevo y edición con bitácora; recibir mercancía.
-    - Configuración y permisos.
-    - Usuarios: alta de empleada, permisos limitados y bloqueo (pierde la sesión al instante); reactivación desde la pantalla.
-    - Salir.
-
-  Sin errores en el servidor.
-- La versión de Supabase (`supabase/`) y `db/` quedan como referencia.
-- **Instalación en el servidor de la farmacia:** `scripts/servidor/instalar.sh` compila el build autónomo, lo instala en `/opt/larafarma` como servicio que arranca con la computadora y abre el navegador al iniciar sesión. Se probó el build autónomo, sin `.env`, contra un PostgreSQL temporal.
+- Apagar el registro público (**Allow new users to sign up**).
+- Aplicar `supabase/migrations/20261003150000_receta_obligatoria.sql` antes de publicar esta versión en Vercel.
 
 ## Lo que sigue
 

@@ -1,6 +1,3 @@
-/** Lo que traen los errores de pg (code es el SQLSTATE de PostgreSQL). */
-export type ErrorBase = { code?: string; message: string };
-
 const GENERICO = "No se pudo completar. Intenta de nuevo.";
 
 /**
@@ -8,7 +5,7 @@ const GENERICO = "No se pudo completar. Intenta de nuevo.";
  * funciones de la base (código P0001) ya vienen en español y se muestran
  * tal cual; el resto se registra en el servidor y se resume.
  */
-export function mensajeDeError(error: ErrorBase | null | undefined, porDefecto = GENERICO): string {
+export function mensajeDeError(error: { code?: string; message: string } | null | undefined, porDefecto = GENERICO): string {
   if (!error) return porDefecto;
   if (error.code === "P0001") return error.message;
   if (error.code === "42501") return "No tienes permiso para hacer esto.";

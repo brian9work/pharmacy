@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { puede } from "@/lib/consultas";
 import { mensajeDeError } from "@/lib/errores";
-import { consultar, intentar } from "@/lib/db/sesion";
+import { clienteServidor } from "@/lib/supabase/servidor";
 import { catalogos as textos } from "./contenido";
 
 export interface EstadoFormulario {
@@ -36,12 +36,12 @@ export async function guardarProveedor(_: EstadoFormulario, formulario: FormData
   if (datos.rfc && !RFC.test(datos.rfc)) return { error: textos.errores.rfc };
   if (datos.correo && !CORREO.test(datos.correo)) return { error: textos.errores.correo };
 
-  const valores = [datos.nombre, datos.rfc, datos.telefono, datos.correo, datos.activo];
+  const supabase = await clienteServidor();
   const { error } = id
     ? UUID.test(id)
-      ? await intentar(consultar("update proveedores set nombre = $1, rfc = $2, telefono = $3, correo = $4, activo = $5 where id = $6", [...valores, id]))
+      ? await supabase.from("proveedores").update(datos).eq("id", id)
       : { error: { message: "id no válido" } }
-    : await intentar(consultar("insert into proveedores (nombre, rfc, telefono, correo, activo) values ($1, $2, $3, $4, $5)", valores));
+    : await supabase.from("proveedores").insert(datos);
   if (error) return { error: mensaje(error) };
 
   refresh();
@@ -56,11 +56,12 @@ export async function guardarCategoria(_: EstadoFormulario, formulario: FormData
   if (!nombre) return { error: textos.errores.nombre };
   if (nombre.length > 60) return { error: textos.errores.largo };
 
+  const supabase = await clienteServidor();
   const { error } = id
     ? /^\d+$/.test(id)
-      ? await intentar(consultar("update categorias set nombre = $1 where id = $2", [nombre, Number(id)]))
+      ? await supabase.from("categorias").update({ nombre }).eq("id", Number(id))
       : { error: { message: "id no válido" } }
-    : await intentar(consultar("insert into categorias (nombre) values ($1)", [nombre]));
+    : await supabase.from("categorias").insert({ nombre });
   if (error) return { error: mensaje(error) };
 
   refresh();

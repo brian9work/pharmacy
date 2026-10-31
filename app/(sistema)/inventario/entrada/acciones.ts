@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 import { mensajeDeError, type Resultado } from "@/lib/errores";
-import { consultarFila, intentar } from "@/lib/db/sesion";
+import { clienteServidor } from "@/lib/supabase/servidor";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -37,23 +37,21 @@ export async function guardarEntrada(entrada: Entrada): Promise<Resultado<{ piez
     );
   if (!valida) return { ok: false, error: "La entrada tiene datos incompletos o no válidos." };
 
-  const partidas = entrada.partidas.map((p) => ({
-    producto_id: p.productoId,
-    lote: p.lote.trim(),
-    caducidad: p.caducidad,
-    cantidad: p.cantidad,
-    costo: p.costo,
-  }));
-  const { datos, error } = await intentar(
-    consultarFila<{ r: { piezas: number } }>("select registrar_entrada($1, $2, $3, $4) as r", [
-      entrada.proveedorId,
-      entrada.factura.trim(),
-      entrada.fecha,
-      JSON.stringify(partidas),
-    ]),
-  );
+  const supabase = await clienteServidor();
+  const { data, error } = await supabase.rpc("registrar_entrada", {
+    p_proveedor: entrada.proveedorId,
+    p_factura: entrada.factura.trim(),
+    p_fecha: entrada.fecha,
+    p_partidas: entrada.partidas.map((p) => ({
+      producto_id: p.productoId,
+      lote: p.lote.trim(),
+      caducidad: p.caducidad,
+      cantidad: p.cantidad,
+      costo: p.costo,
+    })),
+  });
   if (error) return { ok: false, error: mensajeDeError(error) };
 
   refresh();
-  return { ok: true, datos: { piezas: datos!.r.piezas } };
+  return { ok: true, datos: { piezas: (data as { piezas: number }).piezas } };
 }

@@ -4,7 +4,8 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { obtenerSesion, puede } from "@/lib/consultas";
 import { mensajeDeError } from "@/lib/errores";
-import { consultar, consultarFila, intentar } from "@/lib/db/sesion";
+import { clienteAdmin } from "@/lib/supabase/admin";
+import { clienteServidor } from "@/lib/supabase/servidor";
 import { usuarios as textos } from "./contenido";
 
 export interface EstadoFormulario {
@@ -12,8 +13,9 @@ export interface EstadoFormulario {
 }
 
 const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LARGO_MINIMO = 10;
+/** Supabase Auth no tiene "bloqueo permanente": ~100 años equivale. */
+const BLOQUEO = "876000h";
 
 export async function crearUsuario(_: EstadoFormulario, formulario: FormData): Promise<EstadoFormulario> {
   if (!(await puede("usuarios.gestionar"))) return { error: textos.errores.permiso };
@@ -28,11 +30,27 @@ export async function crearUsuario(_: EstadoFormulario, formulario: FormData): P
   if (contrasena.length < LARGO_MINIMO) return { error: textos.errores.contrasena };
   if (rol !== "admin" && rol !== "empleado") return { error: textos.errores.rol };
 
-  // La base vuelve a revisar el permiso y guarda solo el hash de la contraseña temporal.
-  const { error } = await intentar(consultarFila("select crear_usuario($1, $2, $3, $4)", [nombre, correo, contrasena, rol]));
-  if (error) {
-    if (error.code === "23505" || error.message.startsWith("Ya existe una cuenta")) return { error: textos.errores.existe };
+  // 1. La cuenta de acceso en Supabase Auth (requiere la clave de servicio).
+  const admin = clienteAdmin();
+  const { data, error } = await admin.auth.admin.createUser({
+    email: correo,
+    password: contrasena,
+    email_confirm: true,
+    user_metadata: { nombre },
+  });
+  if (error || !data.user) {
+    if (error?.code === "email_exists" || error?.status === 422) return { error: textos.errores.existe };
     return { error: mensajeDeError(error) };
+  }
+
+  // 2. Los datos de la cuenta, con la sesión de quien la crea: RLS lo valida otra vez.
+  const supabase = await clienteServidor();
+  const { error: errorCuenta } = await supabase
+    .from("usuarios")
+    .insert({ id: data.user.id, nombre, correo, rol, debe_cambiar_contrasena: true });
+  if (errorCuenta) {
+    await admin.auth.admin.deleteUser(data.user.id);
+    return { error: mensajeDeError(errorCuenta) };
   }
 
   redirect("/usuarios");
@@ -45,12 +63,15 @@ export async function cambiarEstadoUsuario(_: EstadoFormulario, formulario: Form
   const activo = formulario.get("activo") === "true";
   const { usuario } = await obtenerSesion();
   if (id === usuario.id) return { error: textos.errores.propia };
-  if (!UUID.test(id)) return { error: textos.errores.noExiste };
 
-  // Al bloquear, la base cierra también todas las sesiones de esa cuenta.
-  const { datos, error } = await intentar(consultar("update usuarios set activo = $1 where id = $2 returning id", [activo, id]));
+  const supabase = await clienteServidor();
+  const { data, error } = await supabase.from("usuarios").update({ activo }).eq("id", id).select("id");
   if (error) return { error: mensajeDeError(error) };
-  if (!datos.length) return { error: textos.errores.noExiste };
+  if (!data?.length) return { error: textos.errores.noExiste };
+
+  // Bloquea también en Supabase Auth para que no pueda iniciar sesión ni renovarla.
+  const { error: errorAuth } = await clienteAdmin().auth.admin.updateUserById(id, { ban_duration: activo ? "none" : BLOQUEO });
+  if (errorAuth) console.error(errorAuth);
 
   refresh();
   return {};

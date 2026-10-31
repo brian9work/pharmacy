@@ -5,29 +5,30 @@
 | Pieza | Papel |
 |---|---|
 | **Next.js 16 (App Router)** | Pantallas, Server Components, Server Actions y `proxy.ts` |
-| **PostgreSQL** | Datos, cuentas y sesiones, reglas de negocio y seguridad (RLS y funciones) |
-| **pg** | Conexión del servidor a PostgreSQL (`lib/db/`) |
+| **Supabase Auth** | Correo y contraseña, sesiones en cookies |
+| **Supabase PostgreSQL** | Datos, reglas de negocio y seguridad (RLS y funciones) |
 | **Tailwind 4** | Estilos con los tokens de `app/globals.css` |
 
-No hay otras dependencias además de `pg`.
+No hay otras dependencias además de `@supabase/supabase-js` y `@supabase/ssr`.
 
 ## Cómo viajan los datos
 
 ```mermaid
 flowchart LR
-  N[Navegador] -->|cookie de sesión| P[proxy.ts]
-  P -->|redirige sin cookie| S[Server Components]
-  S -->|lib/consultas.ts| DB[(PostgreSQL · RLS)]
+  N[Navegador] -->|cookies de sesión| P[proxy.ts]
+  P -->|refresca sesión, redirige sin sesión| S[Server Components]
+  S -->|lib/consultas.ts| DB[(Supabase · RLS)]
   N -->|Server Action| A[acciones.ts]
-  A -->|funciones: registrar_venta, abrir_turno…| DB
+  A -->|RPC: registrar_venta, abrir_turno…| DB
+  A -->|solo crear y bloquear cuentas| AD[clave de servicio → Supabase Auth]
 ```
 
-1. **Cada petición pasa por `proxy.ts`.** Sin cookie de sesión manda al acceso; con ella, saca del acceso. No consulta la base.
-2. **Las pantallas leen en el servidor** con `lib/consultas.ts`. Cada consulta abre una transacción en la que pone el token de la cookie (`set_config('larafarma.token', …, true)`); la base lo valida con `usuario_actual()` y aplica las reglas RLS. Si el token ya no sirve, `obtenerSesion()` manda a `/salir`, que borra la cookie.
-3. **Las escrituras son Server Actions** (`acciones.ts` de cada pantalla). Validan la forma de los datos y llaman funciones de la base que revisan permisos y calculan precios, lotes y totales.
-4. **El acceso** (`app/acciones-sesion.ts`) llama `iniciar_sesion()`, guarda el token en una cookie `httpOnly` y nunca lo expone al navegador.
+1. **Cada petición pasa por `proxy.ts`.** Valida y refresca la sesión de Supabase (`getClaims`). Sin sesión manda al acceso; con sesión, saca del acceso.
+2. **Las pantallas leen en el servidor** con `lib/consultas.ts`, usando la sesión de quien entró. Supabase aplica las reglas RLS: cada quien recibe solo lo que puede ver.
+3. **Las escrituras son Server Actions** (`acciones.ts` de cada pantalla). Validan la forma de los datos y llaman funciones de la base (RPC) que revisan permisos y calculan precios, lotes y totales.
+4. **La clave de servicio** solo se usa en `app/(sistema)/usuarios/acciones.ts` para crear y bloquear cuentas en Supabase Auth, después de comprobar el permiso.
 
-El navegador nunca habla directo con la base: `DATABASE_URL` solo existe en el servidor.
+El navegador nunca habla directo con Supabase: la llave pública ni siquiera se envía al cliente.
 
 ## Estructura
 
@@ -37,7 +38,7 @@ config/                    lo que se ajusta sin tocar código
   permisos.ts              roles, módulos y claves de permisos
   punto-de-venta.ts        sonido, ticket e impresión
 lib/
-  db/                      conexión (pool de pg) y sesión (cookie + token por transacción)
+  supabase/                clientes: servidor (RLS), admin (clave de servicio), variables
   consultas.ts             todas las lecturas
   inventario.ts            reglas puras: FEFO, caducidad, alertas, IVA
   validacion-producto.ts   lectura y validación del formulario de producto
@@ -60,12 +61,13 @@ app/
     panel/  venta/  caja/  inventario/  inventario/[id]/  inventario/entrada/
     productos/nuevo/  productos/[id]/editar/  catalogos/
     reportes/  reportes/exportar/  usuarios/  usuarios/nuevo/  usuarios/permisos/  configuracion/
-postgres/
-  larafarma.sql            base completa: esquema, cuentas, sesiones, reportes y datos iniciales
-  pruebas/                 pruebas de reglas (pnpm probar:postgres)
-supabase/                  versión para Supabase (referencia); seed.sql sirve de datos de ejemplo
-scripts/                   probar-postgres.sh, probar-base.sh y el cargador de pruebas de Node
-db/                        primera versión del esquema (referencia, no se usa)
+supabase/
+  migrations/              esquema, datos iniciales y reportes
+  seed.sql                 datos de ejemplo
+  primer-admin.sql         alta del primer administrador
+  pruebas/                 pruebas de reglas (pnpm probar:base)
+scripts/                   probar-base.sh y el cargador de pruebas de Node
+db/                        versión PostgreSQL pura del esquema (referencia, no se usa)
 docs/                      esta documentación
 ```
 
@@ -119,7 +121,6 @@ Lo usan **Vender**, **Recibir mercancía** y el formulario de producto (llena el
 | Comando | Qué prueba | Cómo |
 |---|---|---|
 | `pnpm probar` | Validación de productos y recetas, lector, FEFO, alertas, IVA, periodos, CSV y formatos | `node:test` con TypeScript nativo de Node 24; `scripts/pruebas/` resuelve los imports `@/` |
-| `pnpm probar:postgres` | `postgres/larafarma.sql`: sesiones, contraseñas, reglas RLS, venta, caja y reportes | PostgreSQL temporal (`postgres/pruebas/`) |
-| `pnpm probar:base` | La versión de Supabase | PostgreSQL temporal que imita Supabase (`supabase/pruebas/`) |
+| `pnpm probar:base` | Migraciones, reglas RLS, funciones y disparadores | PostgreSQL temporal que imita Supabase (`supabase/pruebas/`) |
 
-No hay pruebas automáticas de punta a punta en el navegador; se hicieron a mano (ver [historial](historial.md)).
+No hay pruebas de punta a punta del navegador contra Supabase: requieren un Supabase local (Docker) o datos de prueba en el proyecto real.

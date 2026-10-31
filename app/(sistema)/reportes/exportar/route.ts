@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { celdaCsv, pesosCsv } from "@/lib/csv";
 import { mensajeDeError } from "@/lib/errores";
-import { consultar, intentar } from "@/lib/db/sesion";
+import { clienteServidor } from "@/lib/supabase/servidor";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -13,10 +13,11 @@ export async function GET(request: NextRequest) {
   const hasta = request.nextUrl.searchParams.get("hasta") ?? "";
   if (!FECHA.test(desde) || !FECHA.test(hasta)) return new NextResponse("Periodo no válido", { status: 400 });
 
-  const { datos, error } = await intentar(consultar("select * from exportar_ventas($1, $2)", [desde, hasta]));
+  const supabase = await clienteServidor();
+  const { data, error } = await supabase.rpc("exportar_ventas", { p_desde: desde, p_hasta: hasta });
   if (error) return new NextResponse(mensajeDeError(error), { status: error.code === "P0001" ? 403 : 500 });
 
-  const filas = datos as {
+  const filas = (data ?? []) as {
     folio: number;
     fecha: string;
     hora: string;

@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 import { mensajeDeError } from "@/lib/errores";
-import { consultar, intentar } from "@/lib/db/sesion";
+import { clienteServidor } from "@/lib/supabase/servidor";
 import { configuracion as textos } from "./contenido";
 
 export interface EstadoFormulario {
@@ -25,14 +25,10 @@ export async function guardarNegocio(_: EstadoFormulario, formulario: FormData):
   if (datos.rfc && !RFC.test(datos.rfc)) return { error: textos.errores.rfc };
 
   // La regla RLS exige el permiso configuracion.editar: sin él no se actualiza ninguna fila.
-  const { datos: filas, error } = await intentar(
-    consultar(
-      "update negocio set razon_social = $1, rfc = $2, direccion = $3, telefono = $4, pie_ticket = $5 where id = 1 returning id",
-      [datos.razon_social, datos.rfc, datos.direccion, datos.telefono, datos.pie_ticket],
-    ),
-  );
+  const supabase = await clienteServidor();
+  const { data, error } = await supabase.from("negocio").update(datos).eq("id", 1).select("id");
   if (error) return { error: mensajeDeError(error) };
-  if (!filas.length) return { error: textos.errores.permiso };
+  if (!data?.length) return { error: textos.errores.permiso };
 
   refresh();
   return { ok: true };

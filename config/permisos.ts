@@ -1,11 +1,11 @@
 // Roles y claves de permisos que usa el código.
 //
 // Qué puede hacer el empleado se decide en la pantalla Permisos y se guarda
-// en la base (tabla rol_permisos). Los nombres y descripciones de cada
+// en Supabase (tabla rol_permisos). Los nombres y descripciones de cada
 // permiso también viven en la base (tabla permisos).
 //
 // Si agregas un permiso, agrégalo aquí y en
-// postgres/larafarma.sql (datos iniciales) con la misma clave.
+// supabase/migrations/20261002120100_datos_iniciales.sql con la misma clave.
 
 export type Rol = "admin" | "empleado";
 

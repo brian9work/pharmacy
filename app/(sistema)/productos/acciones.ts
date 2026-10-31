@@ -1,10 +1,11 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { obtenerPermisos } from "@/lib/consultas";
 import { mensajeDeError } from "@/lib/errores";
-import { consultar, consultarFila, intentar } from "@/lib/db/sesion";
+import { clienteServidor } from "@/lib/supabase/servidor";
 import { leerProducto, type DatosProducto } from "@/lib/validacion-producto";
 import { productos as textos } from "./contenido";
 
@@ -28,13 +29,13 @@ function mensaje(error: { code?: string; message: string }) {
 }
 
 /** Id de la categoría elegida; si es nueva, la crea (o reutiliza la que ya se llame igual). */
-async function idCategoria(categoria: DatosProducto["categoria"]) {
+async function idCategoria(supabase: SupabaseClient, categoria: DatosProducto["categoria"]) {
   if (!categoria) return { id: null };
   if ("id" in categoria) return { id: categoria.id };
-  const { datos, error } = await intentar(consultarFila<{ id: number }>("insert into categorias (nombre) values ($1) returning id", [categoria.nueva]));
-  if (!error) return { id: datos!.id };
+  const { data, error } = await supabase.from("categorias").insert({ nombre: categoria.nueva }).select("id").single<{ id: number }>();
+  if (!error) return { id: data.id };
   if (error.code !== "23505") return { error: mensajeDeError(error) };
-  const existente = await consultarFila<{ id: number }>("select id from categorias where nombre = $1", [categoria.nueva]).catch(() => null);
+  const { data: existente } = await supabase.from("categorias").select("id").eq("nombre", categoria.nueva).maybeSingle<{ id: number }>();
   return existente ? { id: existente.id } : { error: mensajeDeError(error) };
 }
 
@@ -45,37 +46,34 @@ export async function crearProducto(_: EstadoFormulario, formulario: FormData): 
   if (!lectura.ok) return { error: lectura.error };
   const d = lectura.datos;
 
-  const categoria = await idCategoria(d.categoria);
+  const supabase = await clienteServidor();
+  const categoria = await idCategoria(supabase, d.categoria);
   if ("error" in categoria) return { error: categoria.error };
 
   // La regla RLS vuelve a exigir productos.crear.
-  const { datos, error } = await intentar(
-    consultarFila<{ id: string }>(
-      `insert into productos (codigo_barras, nombre, sustancia, presentacion, laboratorio, categoria_id, clasificacion,
-                              requiere_receta, precio, costo, iva, stock_minimo, ubicacion, refrigerado)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-       returning id`,
-      [
-        d.codigoBarras,
-        d.nombre,
-        d.sustancia,
-        d.presentacion,
-        d.laboratorio,
-        categoria.id,
-        d.clasificacion,
-        d.requiereReceta,
-        d.precio,
-        d.costo ?? 0,
-        d.iva,
-        d.stockMinimo,
-        d.ubicacion,
-        d.refrigerado,
-      ],
-    ),
-  );
+  const { data, error } = await supabase
+    .from("productos")
+    .insert({
+      codigo_barras: d.codigoBarras,
+      nombre: d.nombre,
+      sustancia: d.sustancia,
+      presentacion: d.presentacion,
+      laboratorio: d.laboratorio,
+      categoria_id: categoria.id,
+      clasificacion: d.clasificacion,
+      requiere_receta: d.requiereReceta,
+      precio: d.precio,
+      costo: d.costo ?? 0,
+      iva: d.iva,
+      stock_minimo: d.stockMinimo,
+      ubicacion: d.ubicacion,
+      refrigerado: d.refrigerado,
+    })
+    .select("id")
+    .single<{ id: string }>();
   if (error) return { error: mensaje(error) };
 
-  redirect(`/inventario/${datos!.id}?creado=1`);
+  redirect(`/inventario/${data.id}?creado=1`);
 }
 
 export async function editarProducto(_: EstadoFormulario, formulario: FormData): Promise<EstadoFormulario> {
@@ -91,10 +89,11 @@ export async function editarProducto(_: EstadoFormulario, formulario: FormData):
   if (!lectura.ok) return { error: lectura.error };
   const d = lectura.datos;
 
+  const supabase = await clienteServidor();
   // Solo se mandan los campos que la persona puede cambiar; la base lo vuelve a revisar.
   const cambios: Record<string, unknown> = {};
   if (editar) {
-    const categoria = await idCategoria(d.categoria);
+    const categoria = await idCategoria(supabase, d.categoria);
     if ("error" in categoria) return { error: categoria.error };
     Object.assign(cambios, {
       codigo_barras: d.codigoBarras,
@@ -117,14 +116,9 @@ export async function editarProducto(_: EstadoFormulario, formulario: FormData):
     if (d.costo !== null) cambios.costo = d.costo;
   }
 
-  // Los nombres de columna salen de este archivo, nunca del formulario.
-  const columnas = Object.keys(cambios);
-  const asignaciones = columnas.map((columna, i) => `${columna} = $${i + 1}`).join(", ");
-  const { datos, error } = await intentar(
-    consultar(`update productos set ${asignaciones} where id = $${columnas.length + 1} returning id`, [...Object.values(cambios), id]),
-  );
+  const { data, error } = await supabase.from("productos").update(cambios).eq("id", id).select("id");
   if (error) return { error: mensaje(error) };
-  if (!datos.length) return { error: textos.errores.noExiste };
+  if (!data?.length) return { error: textos.errores.noExiste };
 
   refresh();
   return { ok: true };
